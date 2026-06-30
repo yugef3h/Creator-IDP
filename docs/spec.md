@@ -6,42 +6,38 @@
 
 ## 版本总览
 
-| | V0.1 极简版 | V1.0 升级版 |
-|---|---|---|
-| **目标** | 3小时跑通核心链路，可演示 | 完整产品形态 |
-| **UI** | Streamlit 单文件 | React + Ant Design + ECharts |
-| **后端** | 无（Streamlit 内嵌） | FastAPI + SSE 流式 |
-| **RAG** | Trie 精确匹配 | Trie + Embedding 双索引 |
-| **解析** | 规则优先 + LLM 兜底 | 规则优先 + LLM 兜底 |
-| **纠正** | LLM prompt 约束 | Corrector Chain（3个正确器） |
-| **多轮对话** | ❌ | ✅ 上下文保持 + LLM 改写 |
-| **归因分析** | ❌ | ✅ LLM解读 + 环比 + 下钻推荐 |
-| **图表** | Streamlit 原生 + matplotlib 兜底 | ECharts 5 种图表 + 自动分类 |
-| **文件数** | ~10 个 | ~40 个 |
+| | ChatBI |
+|---|------|
+| **UI** | React + Ant Design + ECharts |
+| **后端** | FastAPI + SSE 流式 |
+| **RAG** | Trie 匹配 + Knowledge Q&A |
+| **解析** | 规则优先，禁用 LLM 兜底防幻觉 |
+| **纠正** | Corrector Chain（Schema / Grammar / Time） |
+| **多轮对话** | ✅ 上下文保持 + LLM 改写 |
+| **归因分析** | ✅ LLM解读 + 环比 + 下钻推荐 |
+| **图表** | ECharts 5 种图表 + 自动分类 + 切换 |
 
 ---
 
-## 共享基础：两个版本通用的模块
+## 核心模块
 
-以下模块 V0.1 和 V1.0 完全共用，一次写好两个版本都能用：
-
-| 文件 | 行数 | 说明 | 并行 |
-|------|------|------|------|
-| `generate_data.py` | ~80 | 造数：SQLite + dataset.yaml + exemplars.json | 独立 |
-| `models.py` | ~50 | 4 个 dataclass（SchemaElement, SemanticParseInfo, QueryResult...） | 独立 |
-| `trie_index.py` | ~60 | jieba 分词 + 前缀/后缀匹配 | 依赖 models |
-| `rule_parser.py` | ~100 | 5 种查询模式匹配 → S2SQL 生成 | 依赖 models |
-| `translator.py` | ~80 | bizName → 物理列名/表达式 + JOIN + LIMIT | 依赖 models |
-| `executor.py` | ~30 | sqlite3 执行 → 返回 QueryResult | 独立 |
-| `llm_parser.py` | ~60 | DeepSeek prompt + few-shot → S2SQL | 依赖 trie_index |
-
-**关键**：这 7 个模块约 460 行，是系统的核心引擎。V0.1 用 Streamlit 把它们粘起来；V1.0 把它们嵌入 FastAPI 插件链。
+| 文件 | 说明 |
+|------|------|
+| `generate_data.py` | 造数：SQLite + dataset.yaml + exemplars.json |
+| `models.py` | 4 个 dataclass |
+| `trie_index.py` | jieba 分词 + 倒排索引 |
+| `rule_parser.py` | 意图分类 + 5 种查询模式 → S2SQL |
+| `translator.py` | bizName → 物理列名/表达式 + JOIN + LIMIT |
+| `executor.py` | SQLite 执行 + 自动聚合兜底 |
+| `backend/main.py` | FastAPI + SSE 流式 |
+| `backend/knowledge.py` | Knowledge Q&A 记忆层 |
+| `backend/correctors.py` | Schema / Grammar / Time Corrector |
+| `backend/context.py` | 多轮对话持久化 |
+| `backend/processors/` | LLM 解读 + 环比 + 下钻推荐 |
 
 ---
 
-# V0.1 极简版（3小时）
-
-## V0.1 目标
+## 数据底座
 
 ```
 用户输入 "最近7天各分区播放量"

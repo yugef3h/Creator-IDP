@@ -4,12 +4,11 @@ ChatBI MVP：自然语言 → SQL → 图表 + AI 解读。核心机制：NL →
 
 ## 当前进度 (2026-06-30)
 
-| 版本 | 状态 | 说明 |
-|------|------|------|
-| **V0.1 极简版** | ✅ 完成 | Streamlit 单文件，6/6 查询全通 |
-| **V1.0 升级版** | ✅ 完成 | FastAPI + React，全部核心能力通过 |
-| **文档** | ✅ 完成 | 4 份文档 |
-| **数据库** | ✅ 已生成 | bilibili_demo.db，3 张表 |
+| 模块 | 状态 |
+|------|------|
+| **ChatBI 完整版** | ✅ 完成 FastAPI + React，全部核心能力通过 |
+| **文档** | ✅ 5 份 |
+| **数据库** | ✅ bilibili_demo.db，3 张表 |
 
 ## V1.0 核心能力验收
 
@@ -26,13 +25,9 @@ ChatBI MVP：自然语言 → SQL → 图表 + AI 解读。核心机制：NL →
 ## 快速开始
 
 ```bash
-# V0.1
-pip3 install streamlit jieba sqlglot openai python-dotenv pyyaml pandas faker
-python3 generate_data.py && streamlit run app.py
-
-# V1.0
-pip3 install fastapi uvicorn streamlit jieba sqlglot openai python-dotenv pyyaml pandas
-python3 generate_data.py && python3 -m uvicorn backend.main:app --port 8000
+pip3 install fastapi uvicorn jieba sqlglot openai python-dotenv pyyaml pandas faker
+python3 generate_data.py
+python3 -m uvicorn backend.main:app --port 8000
 # 前端: cd frontend && npm install && npm run dev
 ```
 
