@@ -132,6 +132,7 @@ def parse(
     query: str,
     matched_elements: list[SchemaElement],
     trie_keys: set | None = None,
+    preset_date_info: dict | None = None,
 ) -> SemanticParseInfo | None:
     """尝试用规则解析。成功返回 SemanticParseInfo，失败返回 None。"""
     metrics = [e for e in matched_elements if e.element_type == "METRIC"]
@@ -169,7 +170,9 @@ def parse(
 
     # ---------- 日期提取 ----------
     date_info: dict = {}
-    if re.search(r"最近(\d+)天|近(\d+)天|过去(\d+)天", query):
+    if preset_date_info:
+        date_info = preset_date_info
+    elif re.search(r"最近(\d+)天|近(\d+)天|过去(\d+)天", query):
         m = re.search(r"(\d+)", query)
         n = int(m.group(1)) if m else 7
         date_info = {"start": _days_ago(n), "end": _today()}
@@ -341,9 +344,10 @@ def parse(
 
     elif len(metrics) >= 1 and not dimensions and not date_info:
         # METRIC_CARD：单指标，无维度无日期
-        # 安全检查：查询中有未识别实义词 → 不自动回答，交给 LLM
-        if _has_unrecognized_content(query, matched_elements, date_info, trie_keys or set()):
-            return None
+        if not preset_date_info:
+            # 安全检查：查询中有未识别实义词 → 不自动回答
+            if _has_unrecognized_content(query, matched_elements, date_info, trie_keys or set()):
+                return None
         agg_metrics = [
             f"{m.default_agg}({m.biz_name})" if m.default_agg else m.biz_name
             for m in metrics

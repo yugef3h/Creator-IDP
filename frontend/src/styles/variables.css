@@ -164,6 +164,31 @@ body {
 }
 
 /* --- Data Overview --- */
+.overview-header {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.overview-header:hover {
+  background: #f0f5ff;
+}
+
+.overview-arrow {
+  font-size: 10px;
+  color: var(--text-color-fourth);
+  transition: transform 0.25s ease;
+}
+
+.overview-arrow.open {
+  transform: rotate(-180deg);
+}
+
 .data-overview {
   display: flex;
   flex-direction: column;
@@ -192,6 +217,56 @@ body {
   background: var(--chat-blue);
   flex-shrink: 0;
   opacity: 0.5;
+}
+
+/* --- Overview Expanded --- */
+.overview-expand {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: overviewSlideIn 0.25s ease;
+}
+
+@keyframes overviewSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.overview-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-color-third);
+  margin-bottom: -6px;
+}
+
+.overview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.overview-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--header-color);
+  color: var(--text-color-secondary);
+  line-height: 1.5;
+  transition: all 0.15s ease;
+  cursor: default;
+}
+
+.overview-tag:hover {
+  background: #dbe4ff;
+  color: var(--chat-blue);
+}
+
+.overview-tag-icon {
+  font-size: 12px;
+  line-height: 1;
 }
 
 /* --- New Chat Button --- */
@@ -341,6 +416,13 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.bubble-content > :last-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .user-bubble .bubble-content {
@@ -433,6 +515,8 @@ body {
   border-radius: 4px;
   padding: 12px 14px;
   margin: 10px 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 /* --- Summary Text --- */

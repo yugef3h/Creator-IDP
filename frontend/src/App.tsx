@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Input, Button, Spin, Tag, Modal, DatePicker } from 'antd'
-import { SendOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons'
+import { SendOutlined, PlusOutlined, EditOutlined, DownOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import ReactECharts from 'echarts-for-react'
 import { useChatStore, type Message } from './store'
 import { sendQuery } from './api'
-import { getChartType } from './chart-utils'
+import { getChartType, getAlternativeChartTypes, CHART_TYPE_CONFIG } from './chart-utils'
 
 const EXAMPLES = [
   '最近7天播放量趋势',
@@ -109,23 +109,7 @@ export default function App() {
           </div>
 
           {/* 数据概览 */}
-          <div>
-            <div className="section-title">📋 数据概览</div>
-            <div className="data-overview">
-              <div className="overview-item">
-                <span className="dot" />
-                50 个视频，8 个分区
-              </div>
-              <div className="overview-item">
-                <span className="dot" />
-                9 个指标，7 个维度
-              </div>
-              <div className="overview-item">
-                <span className="dot" />
-                数据范围：最近 90 天
-              </div>
-            </div>
-          </div>
+          <DataOverview />
 
         </div>
 
@@ -263,6 +247,17 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
     METRIC_CARD: '单值查询',
   }
 
+  // 从 store 中找当前 bot 消息对应的用户原文
+  const userQuery = (() => {
+    const msgs = useChatStore.getState().messages
+    const idx = msgs.findIndex(m => m.id === msg.id)
+    if (idx > 0) {
+      const prev = msgs[idx - 1]
+      if (prev.role === 'user') return prev.content
+    }
+    return ''
+  })()
+
   // 尚无 parseInfo 时显示骨架状态
   if (!parseInfo) {
     return (
@@ -274,7 +269,7 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
 
   return (
     <div>
-      {/* 解析信息条 — 日期可点击修改 */}
+      {/* 解析信息条 — 日期可点击修改 + 图表切换 */}
       <div className="parse-tip">
         <Tag color="green">
           ✅ {modeLabel[parseInfo.queryMode] || parseInfo.queryMode}
@@ -301,15 +296,11 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
               size="small"
               defaultValue={parseInfo.dateInfo?.start ? dayjs(parseInfo.dateInfo.start) : undefined}
               onChange={(d) => {
-                if (d) {
-                  const end = parseInfo.dateInfo?.end || d.format('YYYY-MM-DD')
-                  const dr = { start: d.format('YYYY-MM-DD'), end }
-                  const store = useChatStore.getState()
-                  if (store.status === 'idle') {
-                    sendQuery(msg.content, dr)
-                  }
-                }
                 setEditingDate(false)
+                if (d && userQuery) {
+                  const end = parseInfo.dateInfo?.end || d.format('YYYY-MM-DD')
+                  sendQuery(userQuery, { start: d.format('YYYY-MM-DD'), end }, true)
+                }
               }}
               style={{ width: 120 }}
               placeholder="开始日期"
@@ -319,20 +310,21 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
               size="small"
               defaultValue={parseInfo.dateInfo?.end ? dayjs(parseInfo.dateInfo.end) : undefined}
               onChange={(d) => {
-                if (d) {
-                  const start = parseInfo.dateInfo?.start || d.format('YYYY-MM-DD')
-                  const dr = { start, end: d.format('YYYY-MM-DD') }
-                  const store = useChatStore.getState()
-                  if (store.status === 'idle') {
-                    sendQuery(msg.content, dr)
-                  }
-                }
                 setEditingDate(false)
+                if (d && userQuery) {
+                  const start = parseInfo.dateInfo?.start || d.format('YYYY-MM-DD')
+                  sendQuery(userQuery, { start, end: d.format('YYYY-MM-DD') }, true)
+                }
               }}
               style={{ width: 120 }}
               placeholder="结束日期"
             />
           </span>
+        )}
+
+        {/* 图表类型切换器 */}
+        {result && result.rows.length > 0 && (
+          <ChartTypeSwitcher msg={msg} />
         )}
       </div>
 
@@ -379,21 +371,30 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
         </div>
       )}
 
-      {/* 下钻推荐 */}
+      {/* 下钻推荐 — 组装完整 NL */}
       {msg.recommendedDimensions && msg.recommendedDimensions.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
           <span style={{ fontSize: 12, color: 'var(--text-color-fourth)' }}>🔍 下钻：</span>
-          {msg.recommendedDimensions.map(d => (
-            <Tag key={d.biz_name} style={{ cursor: 'pointer' }}
-              onClick={() => {
-                const store = useChatStore.getState()
-                if (store.status === 'idle') {
-                  sendQuery(`${msg.content} 按${d.biz_name}分`)
-                }
-              }}>
-              {d.biz_name}
-            </Tag>
-          ))}
+          {msg.recommendedDimensions.map(d => {
+            const dimNL: Record<string, string> = {
+              category: '各分区', video_title: '各视频', stat_date: '每天',
+              duration: '按时长', gender: '按性别', age_group: '各年龄段',
+              city: '各城市',
+            }
+            const suffix = dimNL[d.biz_name] || `按${d.biz_name}`
+            return (
+              <Tag key={d.biz_name} style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  const store = useChatStore.getState()
+                  if (store.status === 'idle' && userQuery) {
+                    // 组装完整 NL：原问题 + 下钻维度
+                    sendQuery(`${userQuery} ${suffix}`)
+                  }
+                }}>
+                {suffix}
+              </Tag>
+            )
+          })}
         </div>
       )}
     </div>
@@ -449,7 +450,7 @@ function ChartView({ msg }: { msg: Message }) {
           colorStops: [{ offset: 0, color: 'rgba(27,74,239,0.15)' }, { offset: 1, color: 'rgba(27,74,239,0.02)' }] } },
       }],
     }
-    return <div className="chart-area"><ReactECharts option={option} style={{ height: 300 }} /></div>
+    return <div className="chart-area"><ReactECharts option={option} style={{ height: 300, width: '100%' }} notMerge={true} /></div>
   }
 
   // 柱状图 / 饼图
@@ -475,7 +476,7 @@ function ChartView({ msg }: { msg: Message }) {
         },
       }],
     }
-    return <div className="chart-area"><ReactECharts option={option} style={{ height: 300 }} /></div>
+    return <div className="chart-area"><ReactECharts option={option} style={{ height: 300, width: '100%' }} notMerge={true} /></div>
   }
 
   // 表格兜底
@@ -501,6 +502,97 @@ function ChartView({ msg }: { msg: Message }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/* ============================================================
+   DataOverview — 可展开的数据概览面板
+   ============================================================ */
+const METRICS = [
+  { name: '播放量', icon: '▶' },
+  { name: '点赞', icon: '👍' },
+  { name: '投币', icon: '🪙' },
+  { name: '收藏', icon: '⭐' },
+  { name: '弹幕', icon: '💬' },
+  { name: '评论', icon: '✍️' },
+  { name: '分享', icon: '↗' },
+  { name: '互动率', icon: '📊' },
+  { name: '投币率', icon: '🎯' },
+  { name: '粉丝数', icon: '👥' },
+]
+
+const DIMENSIONS = [
+  { name: '分区', icon: '📂' },
+  { name: '日期', icon: '📅' },
+  { name: '视频', icon: '🎬' },
+  { name: '时长', icon: '⏱' },
+  { name: '性别', icon: '⚤' },
+  { name: '年龄段', icon: '👶' },
+  { name: '城市', icon: '🏙' },
+]
+
+function DataOverview() {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div>
+      <div
+        className={`section-title overview-header ${expanded ? 'expanded' : ''}`}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <DownOutlined className={`overview-arrow ${expanded ? 'open' : ''}`} />
+        📋 数据概览
+      </div>
+
+      {!expanded ? (
+        <div className="data-overview">
+          <div className="overview-item">
+            <span className="dot" />
+            数据范围：最近 90 天
+          </div>
+          <div className="overview-item">
+            <span className="dot" />
+            10 个指标，7 个维度
+          </div>
+          <div className="overview-item">
+            <span className="dot" />
+            50 个视频，8 个分区
+          </div>
+        </div>
+      ) : (
+        <div className="overview-expand">
+          {/* 数据范围 */}
+          <div className="overview-section-label">📦 数据</div>
+          <div className="overview-tags">
+            <span className="overview-tag">最近 90 天</span>
+            <span className="overview-tag">50 个视频</span>
+            <span className="overview-tag">8 个分区</span>
+          </div>
+
+          {/* 指标 */}
+          <div className="overview-section-label">📊 指标 ({METRICS.length})</div>
+          <div className="overview-tags">
+            {METRICS.map(m => (
+              <span key={m.name} className="overview-tag">
+                <span className="overview-tag-icon">{m.icon}</span>
+                {m.name}
+              </span>
+            ))}
+          </div>
+
+          {/* 维度 */}
+          <div className="overview-section-label">📏 维度 ({DIMENSIONS.length})</div>
+          <div className="overview-tags">
+            {DIMENSIONS.map(d => (
+              <span key={d.name} className="overview-tag">
+                <span className="overview-tag-icon">{d.icon}</span>
+                {d.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

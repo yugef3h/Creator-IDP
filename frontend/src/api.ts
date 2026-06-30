@@ -1,12 +1,21 @@
 import { useChatStore } from './store'
 
-export async function sendQuery(queryText: string, dateRange?: { start: string; end: string }) {
+export async function sendQuery(queryText: string, dateRange?: { start: string; end: string }, replaceLast = false) {
   const store = useChatStore.getState()
   const chatId = store.chatId
 
-  store.setStatus('parsing')
-  store.addMessage({ id: '', role: 'user', content: queryText })
-  store.addMessage({ id: '', role: 'bot', content: '' })
+  if (replaceLast) {
+    // 替换模式：就地更新最后一个 bot 消息，不增删任何消息
+    useChatStore.getState().setStatus('parsing')
+    useChatStore.getState().updateLastBot({
+      parseInfo: undefined, result: undefined, summary: undefined,
+      sql: undefined, ratio: undefined, recommendedDimensions: undefined, error: undefined,
+    })
+  } else {
+    store.setStatus('parsing')
+    store.addMessage({ id: '', role: 'user', content: queryText })
+    store.addMessage({ id: '', role: 'bot', content: '' })
+  }
 
   try {
     const response = await fetch('/api/chat/query', {
@@ -20,7 +29,7 @@ export async function sendQuery(queryText: string, dateRange?: { start: string; 
     const reader = response.body!.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
-    let summaryBuf = ''  // 本地累积，不依赖 store 快照
+    let summaryBuf = ''
 
     while (true) {
       const { done, value } = await reader.read()

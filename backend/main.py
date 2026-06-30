@@ -118,21 +118,18 @@ async def chat_query(request: Request):
         if history:
             current_query = rewrite_multi_turn(query_text, history)
 
-        # --- Layer 3: RAG（Trie 匹配） ---
+        # --- Layer 3: RAG + Layer 1: Parse ---
         matched = match(current_query, INDEX)
-
-        # --- Layer 1: Parse ---
-        parse_info = rule_parse(current_query, matched, TRIE_KEYS)
+        preset_date = None
+        if date_range and date_range.get("start") and date_range.get("end"):
+            preset_date = {"start": date_range["start"], "end": date_range["end"]}
+        parse_info = rule_parse(current_query, matched, TRIE_KEYS, preset_date_info=preset_date)
         if parse_info is None or not parse_info.s2sql:
             yield sse_event("error", data={
                 "message": "抱歉，我无法理解这个问题。",
                 "suggestion": "试试：最近7天播放量趋势、各分区播放量排名",
             })
             return
-
-        # 用户手动指定日期范围 → 覆盖自动提取的
-        if date_range and date_range.get("start") and date_range.get("end"):
-            parse_info.date_info = {"start": date_range["start"], "end": date_range["end"]}
 
         # 发送 parse_info
         yield sse_event("parse_info", data={

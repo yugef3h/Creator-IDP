@@ -23,6 +23,7 @@ export interface Message {
   ratio?: Record<string, { current: number; previous: number; ratio: number; label: string }>
   recommendedDimensions?: { biz_name: string; score: number }[]
   dateInfo?: { start: string; end: string }
+  chartTypeOverride?: ChartType
 }
 
 export type ChartType = 'METRIC_CARD' | 'METRIC_TREND' | 'METRIC_BAR' | 'METRIC_PIE' | 'TABLE'
