@@ -1,0 +1,10 @@
+streamlit>=1.28
+jieba>=0.42
+sqlglot>=20.0
+openai>=1.0
+python-dotenv>=1.0
+pyyaml>=6.0
+pandas>=2.0
+faker>=18.0
+fastapi>=0.100
+uvicorn>=0.23

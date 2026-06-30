@@ -1,0 +1,139 @@
+datasets:
+- dimensions:
+  - alias: 分区,板块,类别,类型
+    biz_name: category
+    data_type: CATEGORY
+    id: 20
+    join_key: video_stats.video_id = videos.video_id
+    join_table: videos
+    name: videos.category
+  - alias: 日期,时间,天,日
+    biz_name: stat_date
+    data_type: DATE
+    id: 21
+    name: stat_date
+  - alias: 视频,稿件,内容
+    biz_name: video_title
+    data_type: CATEGORY
+    id: 22
+    join_key: video_stats.video_id = videos.video_id
+    join_table: videos
+    name: videos.title
+  - alias: 时长,视频时长,长度
+    biz_name: duration
+    data_type: NUMERIC
+    id: 23
+    join_key: video_stats.video_id = videos.video_id
+    join_table: videos
+    name: videos.duration
+  - alias: 性别,男女
+    biz_name: gender
+    data_type: CATEGORY
+    id: 24
+    name: gender
+    table: fans
+  - alias: 年龄段,年龄,年龄分布
+    biz_name: age_group
+    data_type: CATEGORY
+    id: 25
+    name: age_group
+    table: fans
+  - alias: 城市,地区,地域
+    biz_name: city
+    data_type: CATEGORY
+    id: 26
+    name: city
+    table: fans
+  id: 1
+  join_config:
+    fans: null
+    videos: video_stats.video_id = videos.video_id
+  metrics:
+  - alias: 播放量,播放数,观看量
+    biz_name: views
+    data_type: NUMERIC
+    default_agg: SUM
+    description: 视频播放总次数
+    id: 1
+    name: views
+  - alias: 点赞,点赞数,赞
+    biz_name: likes
+    data_type: NUMERIC
+    default_agg: SUM
+    description: 点赞总数
+    id: 2
+    name: likes
+  - alias: 投币,硬币,投币数,币
+    biz_name: coins
+    data_type: NUMERIC
+    default_agg: SUM
+    description: 投币总数
+    id: 3
+    name: coins
+  - alias: 收藏,收藏数
+    biz_name: favorites
+    data_type: NUMERIC
+    default_agg: SUM
+    description: 收藏总数
+    id: 4
+    name: favorites
+  - alias: 弹幕,弹幕数
+    biz_name: danmaku
+    data_type: NUMERIC
+    default_agg: SUM
+    description: 弹幕总数
+    id: 5
+    name: danmaku
+  - alias: 评论,评论数,留言
+    biz_name: comments
+    data_type: NUMERIC
+    default_agg: SUM
+    description: 评论总数
+    id: 6
+    name: comments
+  - alias: 分享,分享数,转发
+    biz_name: shares
+    data_type: NUMERIC
+    default_agg: SUM
+    description: 分享总数
+    id: 7
+    name: shares
+  - alias: 互动率,交互率
+    biz_name: interaction_rate
+    data_type: NUMERIC
+    default_agg: AVG
+    description: 互动率 = (点赞+投币+收藏)/播放量
+    expression: (likes + coins + favorites) * 1.0 / NULLIF(views, 0)
+    id: 8
+    name: null
+  - alias: 投币率,硬币率
+    biz_name: coin_rate
+    data_type: NUMERIC
+    default_agg: AVG
+    description: 投币率 = 投币数/播放量，B站核心质量指标
+    expression: coins * 1.0 / NULLIF(views, 0)
+    id: 9
+    name: null
+  - alias: 粉丝数,粉丝量,关注数
+    biz_name: fan_count
+    data_type: NUMERIC
+    default_agg: COUNT
+    description: 粉丝总数
+    id: 10
+    name: fan_id
+    table: fans
+  name: B站视频数据
+  table_name: video_stats
+  terms:
+  - alias: 播放完成率
+    description: 平均播放时长/视频时长，B站衡量内容质量的核心指标
+    id: 30
+    name: 完播率
+  - alias: 一键三连,点赞投币收藏
+    description: B站特色互动行为：同时点赞+投币+收藏
+    id: 31
+    name: 三连
+  - alias: 热门,火
+    description: 通常指播放量超过10万的视频
+    id: 32
+    name: 爆款

@@ -2,6 +2,52 @@
 
 ChatBI MVP：自然语言 → SQL → 图表 + AI 解读。核心机制：LLM 生成 S2SQL（业务名）→ Translator 确定性转物理 SQL，防幻觉。
 
+## 当前进度 (2026-06-30)
+
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| **V0.1 极简版** | ✅ 完成 | 11 个文件，1441 行代码，全部可运行 |
+| **V1.0 升级版** | 🟡 进行中 | backend/ 骨架，frontend/ 左右双栏布局已实现 |
+| **文档** | ✅ 完成 | 4 份文档：spec / design-review / ui-design-system / 多Agent协作规范 |
+| **数据库** | ✅ 已生成 | `bilibili_demo.db` (180K)，3 张表：videos / video_stats / fans |
+
+### V0.1 各模块详情
+
+| 文件 | 行数 | 功能 |
+|---|---|---|
+| `app.py` | 260 | Streamlit 主界面，含对话输入 + 图表渲染 + AI 解读 |
+| `generate_data.py` | 227 | Faker 造数，生成 3 表 + dataset.yaml + exemplars.json |
+| `rule_parser.py` | 281 | 5 种查询模式（排行/趋势/对比/明细/筛选）→ S2SQL |
+| `translator.py` | 132 | bizName → 物理 SQL，确定性转换防幻觉 |
+| `llm_parser.py` | 127 | DeepSeek few-shot prompt，规则失败时 LLM 兜底 |
+| `dataset.yaml` | 139 | 语义模型：3 实体 + 12 指标 + 8 维度定义 |
+| `exemplars.json` | 65 | 6 组 few-shot 示例 |
+| `models.py` | 56 | QueryRequest / S2SQL / ChartConfig / QueryResult 4 个 dataclass |
+| `trie_index.py` | 57 | jieba 分词 + Trie 前缀匹配，实体/指标识别 |
+| `executor.py` | 38 | SQLite 执行 + pandas DataFrame 返回 |
+| `start.sh` | 59 | 一键启动：检查依赖 → 造数 → 启动 Streamlit |
+
+### V1.0 待实现
+
+```
+backend/
+├── main.py               # ❌ FastAPI + SSE
+├── context.py             # ❌ 多轮对话
+├── correctors.py          # ❌ Schema/Grammar/Time Corrector
+├── rag/embedding_store.py # ❌ FAISS + bge-small-zh
+├── processors/            # ❌ LLM解读 + 环比 + 下钻
+└── pipeline/              # ❌ 嵌入 V0.1 模块
+
+frontend/                  # 🟡 5 个源文件，~400 行 TSX/CSS
+├── src/App.tsx            # ✅ 左右双栏：左面板推荐问句 + 查询，右面板对话 + 图表
+├── src/api.ts             # ✅ SSE 流式请求
+├── src/store.ts           # ✅ zustand 状态管理
+├── src/chart-utils.ts     # ✅ 图表类型自动选择
+├── src/styles/variables.css # ✅ 完整 CSS 变量 + 双栏布局样式
+├── src/main.tsx           # ✅ 入口
+└── index.html             # ✅
+```
+
 ## 双版本
 
 | | V0.1 极简版 | V1.0 升级版 |

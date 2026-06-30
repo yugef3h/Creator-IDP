@@ -1,0 +1,66 @@
+[
+  {
+    "question": "最近7天播放量趋势",
+    "s2sql": "SELECT stat_date, SUM(views) FROM video_stats WHERE stat_date BETWEEN '{{-7d}}' AND '{{today}}' GROUP BY stat_date ORDER BY stat_date"
+  },
+  {
+    "question": "各分区播放量排名",
+    "s2sql": "SELECT category, SUM(views) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id GROUP BY category ORDER BY SUM(views) DESC"
+  },
+  {
+    "question": "上个月点赞最多的5个视频",
+    "s2sql": "SELECT video_title, SUM(likes) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id WHERE stat_date BETWEEN '{{last_month_start}}' AND '{{last_month_end}}' GROUP BY video_title ORDER BY SUM(likes) DESC LIMIT 5"
+  },
+  {
+    "question": "最近7天互动率是多少",
+    "s2sql": "SELECT AVG((likes + coins + favorites) * 1.0 / NULLIF(views, 0)) FROM video_stats WHERE stat_date BETWEEN '{{-7d}}' AND '{{today}}'"
+  },
+  {
+    "question": "对比知识区和生活区的投币率",
+    "s2sql": "SELECT category, AVG(coins * 1.0 / NULLIF(views, 0)) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id WHERE category IN ('知识', '生活') AND stat_date BETWEEN '{{-30d}}' AND '{{today}}' GROUP BY category"
+  },
+  {
+    "question": "最近30天新增粉丝城市分布",
+    "s2sql": "SELECT city, COUNT(*) FROM fans WHERE follow_time BETWEEN '{{-30d}}' AND '{{today}}' GROUP BY city ORDER BY COUNT(*) DESC"
+  },
+  {
+    "question": "最近7天各分区弹幕数和评论数",
+    "s2sql": "SELECT category, SUM(danmaku), SUM(comments) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id WHERE stat_date BETWEEN '{{-7d}}' AND '{{today}}' GROUP BY category"
+  },
+  {
+    "question": "本周播放量和上周对比",
+    "s2sql": "SELECT stat_date, SUM(views) FROM video_stats WHERE stat_date BETWEEN '{{this_week_start}}' AND '{{today}}' GROUP BY stat_date ORDER BY stat_date"
+  },
+  {
+    "question": "深圳的粉丝有多少",
+    "s2sql": "SELECT COUNT(*) FROM fans WHERE city = '深圳'"
+  },
+  {
+    "question": "科技区播放量最高的3个视频",
+    "s2sql": "SELECT video_title, SUM(views) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id WHERE category = '科技' GROUP BY video_title ORDER BY SUM(views) DESC LIMIT 3"
+  },
+  {
+    "question": "最近7天播放量最高的5个视频",
+    "s2sql": "SELECT video_title, SUM(views) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id WHERE stat_date BETWEEN '{{-7d}}' AND '{{today}}' GROUP BY video_title ORDER BY SUM(views) DESC LIMIT 5"
+  },
+  {
+    "question": "各分区视频数量",
+    "s2sql": "SELECT category, COUNT(DISTINCT video_stats.video_id) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id GROUP BY category"
+  },
+  {
+    "question": "最近7天评论最多的视频",
+    "s2sql": "SELECT video_title, SUM(comments) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id WHERE stat_date BETWEEN '{{-7d}}' AND '{{today}}' GROUP BY video_title ORDER BY SUM(comments) DESC LIMIT 10"
+  },
+  {
+    "question": "粉丝男女比例",
+    "s2sql": "SELECT gender, COUNT(*) FROM fans GROUP BY gender"
+  },
+  {
+    "question": "各分区平均视频时长",
+    "s2sql": "SELECT category, AVG(duration) FROM videos GROUP BY category"
+  },
+  {
+    "question": "最近7天分享最多的视频",
+    "s2sql": "SELECT video_title, SUM(shares) FROM video_stats JOIN videos ON video_stats.video_id = videos.video_id WHERE stat_date BETWEEN '{{-7d}}' AND '{{today}}' GROUP BY video_title ORDER BY SUM(shares) DESC LIMIT 5"
+  }
+]

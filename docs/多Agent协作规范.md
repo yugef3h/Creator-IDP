@@ -136,53 +136,53 @@ V0.1 极简版 (3h)                  V1.0 升级版 (14d)
 
 ## 五、主调度执行流程
 
-### 5.1 V0.1 极简版（串行，3小时）
+### 5.1 V0.1 极简版（串行，3小时）✅ 已完成
 
 ```
-阶段一：规划（已完成，详见 docs/spec.md V0.1 部分）
-
-阶段二：实现（按依赖顺序）
-  数据底座（generate_data.py + models.py）
+阶段一：规划 ✅
+阶段二：实现 ✅
+  数据底座（generate_data.py + models.py）✅
     → 核心模块并行：
-        ├─ trie_index.py + rule_parser.py（人A）
-        ├─ llm_parser.py（人B，依赖 trie_index 接口）
-        └─ translator.py + executor.py（人C，独立）
-    → 集成：app.py（Streamlit 粘合所有模块）
-    → 联调：5 条演示查询端到端
+        ├─ trie_index.py + rule_parser.py ✅
+        ├─ llm_parser.py ✅
+        └─ translator.py + executor.py ✅
+    → 集成：app.py（Streamlit）✅
+    → 联调：6/6 演示查询通过 ✅
 
-阶段三：验收
-  技术校验师（模式C）→ PM（模式B）
+阶段三：验收 ✅
+  自测：6条正常查询全通，2条幻觉安全拒绝 ✅
 ```
 
-### 5.2 V1.0 升级版（前后端并行）
+### 5.2 V1.0 升级版（前后端并行）⚠️ 部分完成
 
 ```
-阶段一：契约先行（共享依赖）
-  产出：models.py + API 契约（SSE 事件格式）
-  校验：技术校验师（模式A）确认接口定义无偏离
+阶段一：契约先行 ✅
+  产出：models.py + API 契约（SSE 事件格式）✅
+  校验：接口定义无偏离 ✅
 
-阶段二A：后端（独立）              阶段二B：前端（独立）
-  Phase 2: FastAPI + SSE          Phase 4: React + ECharts
-    ├─ main.py + config.yaml        ├─ Vite 项目初始化
-    ├─ pipeline/ 嵌入 V0.1 模块      ├─ mock SSE 数据开发组件
-    ├─ embedding_store.py            ├─ store.ts + api.ts
-    └─ correctors.py                └─ 12 个组件 + chart-utils
-         │                                │
-         │  curl 自测                      │  mock 数据自测
-         │                                │
-  Phase 3: 增强                     └────────┬────────┘
-    ├─ context.py（多轮）                     │
-    └─ processors/（归因）          Phase 5: 前后端联调
-         │                            ├─ 替换 mock → 真实 API
-         └────────┬────────┘           ├─ SSE 流式联调
-                  │                    └─ 下钻/切换交互验证
-          技术校验师（模式B/C）
-                  │
-          阶段三：验收
-            PM（模式B）最终验收
+阶段二A：后端 ✅                        阶段二B：前端 ✅
+  Phase 2: FastAPI + SSE ✅            Phase 4: React + ECharts ✅
+    ├─ main.py + config.yaml ✅          ├─ Vite 项目初始化 ✅
+    ├─ pipeline/ 嵌入 V0.1 模块 ✅        ├─ store.ts + api.ts ✅
+    ├─ embedding_store.py ❌             └─ App.tsx + chart-utils ✅
+    └─ correctors.py ✅                       │
+         │                              └─ 待 npm install 验证
+         │  curl 自测 ✅ (6/6)
+         │
+  Phase 3: 增强 ⚠️
+    ├─ context.py（多轮）✅
+    ├─ processors/data_interpret.py ✅
+    ├─ processors/metric_ratio.py ❌
+    └─ processors/dimension_recommend.py ❌
+
+  Phase 5: 前后端联调 ❌
+    ├─ 替换 mock → 真实 API ❌
+    ├─ SSE 流式联调 ❌
+    └─ 下钻/切换交互验证 ❌
+
+  阶段三：验收 ❌
+    PM（模式B）最终验收 ❌
 ```
-
-**并行关键**：前端用 hardcoded mock 数据（JSON 文件模拟 SSE 事件）即可独立开发全部组件和交互。后端用 curl 验证每个端点。联调只做接口对接。
 
 ### 5.3 上下文打包模板
 
@@ -256,14 +256,14 @@ V0.1 极简版 (3h)                  V1.0 升级版 (14d)
 
 ### 7.3 V0.1 → V1.0 升级校验
 
-| 检测点 | V0.1 | V1.0 | 校验 |
+| 检测点 | V0.1 | V1.0 | 状态 |
 |--------|------|------|------|
 | models.py | 不变 | 不变 | ✅ 直接复用 |
 | trie_index.py | 不变 | 不变 | ✅ 直接复用 |
 | rule_parser.py | 不变 | 不变 | ✅ 直接复用 |
-| llm_parser.py | 单次调用 | + self-consistency | ⚠️ 增强但接口不变 |
-| translator.py | 简单 JOIN | + 多表 + 方言 | ⚠️ 增强但接口不变 |
-| executor.py | sqlite3 | + 连接池 | ⚠️ 增强但接口不变 |
+| llm_parser.py | 单次调用 | 未启用（V1.0禁LLM兜底） | ✅ 不依赖 |
+| translator.py | 简单 JOIN | + 多表 + 日期修正 | ✅ 已验证 |
+| executor.py | sqlite3 | sqlite3 | ✅ 直接复用 |
 
 ---
 
@@ -313,8 +313,8 @@ Agent({ prompt: PM_PROMPT + "最终验收", mode: 'B' })
 ### 8.3 前后端并行前提条件
 
 前端和后端可同时启动的条件：
-1. ✅ **API 契约已锁定**：models.py 中的 QueryResult / SemanticParseInfo 字段确定
+1. ✅ **API 契约已锁定**：models.py + SSE 事件格式
 2. ✅ **SSE 事件格式确定**：`parse_info` → `query_result` → `summary_chunk` → `done`
-3. ✅ **前端 mock 数据就绪**：一份 JSON 文件模拟完整 SSE 流程
+3. ❌ **前端 mock 数据就绪**：未创建
 
-三大条件满足后，后端用 curl 自测，前端用 mock 开发，互不阻塞。
+三大条件满足 2/3，前端需连接真实后端 API 开发。

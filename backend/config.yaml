@@ -1,0 +1,34 @@
+# ChatBI V1.0 插件链配置
+# 增删功能只改此文件，不碰核心代码
+
+pipeline:
+  mappers:
+    - trie_index.KeywordMapper
+    - backend.rag.embedding_store.EmbeddingMapper
+  parsers:
+    - rule_parser.RuleSqlParser
+  correctors:
+    - backend.correctors.SchemaCorrector
+    - backend.correctors.GrammarCorrector
+    - backend.correctors.TimeCorrector
+  processors:
+    - backend.processors.data_interpret.DataInterpretProcessor
+
+llm:
+  model: deepseek-chat
+  temperature: 0.1
+  max_tokens: 500
+  timeout: 5  # seconds
+
+embedding:
+  model: BAAI/bge-small-zh-v1.5
+  device: cpu
+  top_k: 5
+
+server:
+  cors_origins:
+    - http://localhost:5173
+    - http://localhost:3000
+
+database:
+  path: bilibili_demo.db

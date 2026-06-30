@@ -10,16 +10,24 @@
 
 ### 前置
 
-- Python 3.10+
-- DeepSeek API Key
+- Python 3.9+
+- DeepSeek API Key（[注册](https://platform.deepseek.com)，¥1/百万 token）
 
-### 启动
+### 一键启动
+
+```bash
+cp .env.example .env && vim .env   # 填入 DEEPSEEK_API_KEY
+bash start.sh                       # 自动安装依赖、生成数据、启动服务
+# → http://localhost:8501
+```
+
+### 手动启动
 
 ```bash
 cp .env.example .env           # 填入 DEEPSEEK_API_KEY
-pip install streamlit jieba sqlglot openai python-dotenv pyyaml
-python generate_data.py        # 仅首次
-streamlit run app.py           # → http://localhost:8501
+pip3 install streamlit jieba sqlglot openai python-dotenv pyyaml pandas faker
+python3 generate_data.py        # 仅首次
+streamlit run app.py            # → http://localhost:8501
 ```
 
 ### 试试

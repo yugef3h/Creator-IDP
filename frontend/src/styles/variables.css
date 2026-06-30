@@ -1,0 +1,607 @@
+/* ============================================================
+   ChatBI Design System — based on SuperSonic UI patterns
+   ============================================================ */
+
+:root {
+  /* Primary Accents */
+  --chat-blue: #1b4aef;
+  --primary-green: #31c462;
+  --primary-orange: #f87653;
+
+  /* Semantic Colors */
+  --green: #00d59c;
+  --error-color: #ff4d4f;
+  --warning-color: #faad14;
+  --link-color: #3a64ff;
+  --highlight-color: #ff4d4f;
+
+  /* Text Colors */
+  --text-color: #181a1a;
+  --text-color-secondary: #3d4242;
+  --text-color-third: #626a6a;
+  --text-color-fourth: #889191;
+
+  /* Backgrounds */
+  --body-background: #f7fafa;
+  --component-background: #fff;
+  --light-background: #f5f5f5;
+  --header-color: #edf2f2;
+
+  /* Borders */
+  --border-color-base: #e1e6e6;
+
+  /* Shadows */
+  --card-shadow: 0 2px 4px rgba(0, 0, 0, 0.14), 0 0 2px rgba(0, 0, 0, 0.12);
+  --input-focus-shadow: rgb(74, 114, 245) 0px 0px 3px;
+  --float-shadow: 8px 8px 20px 0 rgba(55, 99, 170, 0.1);
+
+  /* Layout */
+  --left-panel-width: 340px;
+
+  /* Chart Colors */
+  --chart-1: #1b4aef; --chart-2: #31c462; --chart-3: #f87653;
+  --chart-4: #ffb924; --chart-5: #00d59c; --chart-6: #ff4d4f;
+  --chart-7: #3a64ff; --chart-8: #ff7800; --chart-9: #446dff;
+  --chart-10: #ff8193; --chart-11: #00b354; --chart-12: #c20c0c;
+}
+
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Microsoft YaHei', 'Noto Sans', sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  background: var(--body-background);
+  color: var(--text-color);
+  overflow: hidden;
+}
+
+/* ============================================================
+   Layout: Two-Column Split
+   ============================================================ */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ============================================================
+   Left Panel — 推荐问句 + 数据概览
+   ============================================================ */
+.left-panel {
+  position: relative;
+  width: var(--left-panel-width);
+  min-width: var(--left-panel-width);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--component-background);
+  border-right: 1px solid var(--border-color-base);
+  z-index: 10;
+}
+
+.left-panel-header {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid var(--border-color-base);
+}
+
+.left-panel-header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 4px;
+  letter-spacing: -0.3px;
+}
+
+.left-panel-header p {
+  font-size: 12px;
+  color: var(--text-color-fourth);
+}
+
+.left-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.left-panel-body .section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color-secondary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- Recommended Questions --- */
+.example-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.example-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-color-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.example-btn:hover {
+  background: #f0f5ff;
+  color: var(--chat-blue);
+  border-color: transparent;
+}
+
+.example-btn:active {
+  background: #dbe4ff;
+}
+
+.example-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* --- Data Overview --- */
+.data-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.data-overview .overview-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-color-secondary);
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.data-overview .overview-item:hover {
+  background: #f9fafa;
+}
+
+.data-overview .overview-item .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--chat-blue);
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+/* --- New Chat Button --- */
+.new-chat-btn {
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  height: 36px !important;
+}
+
+/* --- Footer --- */
+.left-panel-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border-color-base);
+  font-size: 11px;
+  color: var(--text-color-fourth);
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
+.left-panel-footer .footer-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-green);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ============================================================
+   Right Panel — 对话 + 图表 + 输入
+   ============================================================ */
+.right-panel {
+  flex: 1;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background:
+    linear-gradient(180deg, rgba(23,74,228,0) 29.44%, rgba(23,74,228,0.04) 100%),
+    linear-gradient(90deg, #f3f3f7 0%, #f3f3f7 20%, #ebf0f9 60%, #f3f3f7 80%, #f3f3f7 100%);
+}
+
+/* --- Status Bar --- */
+.right-panel-header {
+  padding: 12px 24px;
+  background: rgba(243, 243, 247, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-color-base);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.right-panel-header .status-badge {
+  font-size: 12px;
+  color: var(--text-color-fourth);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-green);
+  box-shadow: 0 0 0 2px rgba(49, 196, 98, 0.15);
+  transition: all 0.3s ease;
+}
+
+.status-dot.parsing {
+  background: var(--warning-color);
+  box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.2);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.status-dot.error {
+  background: var(--error-color);
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* --- Messages Area --- */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 24px 0;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+.messages::-webkit-scrollbar {
+  width: 5px;
+}
+
+.messages::-webkit-scrollbar-thumb {
+  background: #d0d5d5;
+  border-radius: 10px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover {
+  background: #b0b5b5;
+}
+
+/* --- Welcome State --- */
+.welcome-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+  text-align: center;
+  min-height: 400px;
+}
+
+.welcome-state .welcome-icon {
+  font-size: 56px;
+  margin-bottom: 20px;
+  opacity: 0.8;
+}
+
+.welcome-state h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 10px;
+  letter-spacing: -0.3px;
+}
+
+.welcome-state p {
+  font-size: 14px;
+  color: var(--text-color-fourth);
+  max-width: 420px;
+  line-height: 1.7;
+}
+
+/* --- Chat Bubbles --- */
+.user-bubble {
+  background: linear-gradient(81.62deg, #2870ea 8.72%, var(--chat-blue) 85.01%);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 18px;
+  box-shadow: var(--card-shadow);
+  max-width: 70%;
+  margin-left: auto;
+  margin-bottom: 16px;
+  width: fit-content;
+  word-break: break-word;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.user-msg-text {
+  cursor: pointer;
+  position: relative;
+  display: inline;
+}
+
+.user-msg-text .edit-hint {
+  font-size: 11px;
+  margin-left: 8px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  vertical-align: middle;
+}
+
+.user-msg-text:hover .edit-hint {
+  opacity: 0.7;
+}
+
+.bot-bubble {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 14px 20px;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 16px;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+/* --- Parse Tip --- */
+.parse-tip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.parse-tip .tag {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--header-color);
+  color: var(--text-color-third);
+  line-height: 1.4;
+}
+
+/* Ant Design tag override */
+.ant-tag {
+  margin-right: 0 !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  line-height: 20px !important;
+}
+
+/* --- Chart --- */
+.chart-area {
+  background: #f5f8fb;
+  border: 1px solid var(--border-color-base);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+
+/* --- Summary Text --- */
+.summary-text {
+  font-size: 13px;
+  color: var(--text-color-secondary);
+  line-height: 1.7;
+  margin-top: 10px;
+  white-space: pre-wrap;
+}
+
+/* --- SQL Toggle --- */
+.sql-toggle {
+  font-size: 12px;
+  color: var(--link-color);
+  cursor: pointer;
+  margin-top: 8px;
+  user-select: none;
+  display: inline-block;
+  padding: 2px 0;
+  transition: opacity 0.15s ease;
+}
+
+.sql-toggle:hover {
+  opacity: 0.75;
+}
+
+/* --- SQL Block --- */
+.sql-block {
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  background: #f5f5f5;
+  padding: 10px 14px;
+  border-radius: 4px;
+  overflow: auto;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  border: 1px solid var(--border-color-base);
+  line-height: 1.5;
+}
+
+/* --- Cursor Blink --- */
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+  color: var(--chat-blue);
+  font-weight: 200;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* ============================================================
+   Chat Footer — Input Area (always at bottom)
+   ============================================================ */
+.chat-footer {
+  padding: 12px 24px 20px;
+  flex-shrink: 0;
+}
+
+.chat-footer .input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.chat-footer .input-row > :first-child {
+  flex: 1;
+}
+
+/* Ant Design TextArea override */
+.chat-footer .ant-input {
+  background: #f9f9f9;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  padding: 10px 14px;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+}
+
+.chat-footer .ant-input:hover {
+  background: #f5f5f5;
+  border-color: var(--border-color-base);
+}
+
+.chat-footer .ant-input:focus,
+.chat-footer .ant-input-focused {
+  background: var(--component-background);
+  border-color: var(--chat-blue);
+  box-shadow: var(--input-focus-shadow);
+}
+
+/* Send Button */
+.send-btn {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--float-shadow) !important;
+  transition: all 0.2s ease !important;
+}
+
+.send-btn:not(:disabled):hover {
+  box-shadow: 8px 8px 20px rgba(55, 99, 170, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+.send-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.send-btn:disabled {
+  background: #b8b8bf !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Data Table
+   ============================================================ */
+.data-table-wrap {
+  overflow: auto;
+  max-height: 420px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color-base);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table thead tr {
+  background: var(--header-color);
+}
+
+.data-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: #666;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-color-base);
+}
+
+.data-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border-color-base);
+  color: var(--text-color-secondary);
+}
+
+.data-table tbody tr:nth-child(even) {
+  background-color: #fbfbfb;
+}
+
+.data-table tbody tr:hover {
+  background-color: #f0f5ff;
+}
+
+/* ============================================================
+   Loading / Spinner
+   ============================================================ */
+.loading-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--text-color-third);
+}
+
+/* ============================================================
+   Ant Design overrides
+   ============================================================ */
+.ant-btn-primary {
+  box-shadow: var(--float-shadow);
+}
+
+.ant-btn-primary:not(:disabled):hover {
+  box-shadow: 8px 8px 20px rgba(55, 99, 170, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+.ant-spin-dot {
+  font-size: 16px !important;
+}
