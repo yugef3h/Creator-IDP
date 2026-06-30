@@ -167,3 +167,11 @@ chatbi-demo/
 - [可执行规格书](docs/spec.md) — V0.1 + V1.0 双版本实现清单 + 验收标准
 - [设计评审稿](docs/design-review.md) — 架构决策、技术选型、风险矩阵、降级策略
 - [UI 设计规范](docs/ui-design-system.md) — CSS 变量、组件配方、ECharts 主题
+
+## 试试这些
+
+1. 粉丝的年龄分布      → distribution, dims=['age_group'], 5 rows ✅
+2. 粉丝的性别比例      → distribution, dims=['gender'], 2 rows ✅
+3. 各城市粉丝占比      → distribution, dims=['city'], 10 rows ✅
+4. 各分区的互动率对比   → ranking, dims=['category'], 8 rows ✅
+5. 各年龄段新增粉丝构成  → distribution, dims=['age_group'], 5 rows ✅

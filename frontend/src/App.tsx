@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Input, Button, Spin, Tag, Modal } from 'antd'
+import { Input, Button, Spin, Tag, Modal, DatePicker } from 'antd'
 import { SendOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons'
+import dayjs from 'dayjs'
 import ReactECharts from 'echarts-for-react'
 import { useChatStore, type Message } from './store'
 import { sendQuery } from './api'
@@ -165,18 +166,27 @@ export default function App() {
             messages.map(msg => (
               <div key={msg.id} className={msg.role === 'user' ? 'user-bubble' : 'bot-bubble'}>
                 {msg.role === 'user' ? (
-                  <span
-                    className="user-msg-text"
-                    onClick={() => handleEditMessage(msg.content)}
-                    title="点击重新编辑"
-                  >
-                    {msg.content}
-                    <EditOutlined className="edit-hint" />
-                  </span>
+                  <div className="bubble-content">
+                    <img src="/avatars/user.svg" className="msg-avatar" alt="用户" />
+                    <span
+                      className="user-msg-text"
+                      onClick={() => handleEditMessage(msg.content)}
+                      title="点击重新编辑"
+                    >
+                      {msg.content}
+                      <EditOutlined className="edit-hint" />
+                    </span>
+                  </div>
                 ) : msg.error ? (
-                  <div style={{ color: 'var(--error-color)' }}>{msg.error}</div>
+                  <div className="bubble-content" style={{ color: 'var(--error-color)' }}>
+                    <img src="/avatars/bot.svg" className="msg-avatar" alt="机器人" />
+                    <span>{msg.error}</span>
+                  </div>
                 ) : (
-                  <BotMessage msg={msg} status={status} />
+                  <div className="bubble-content">
+                    <img src="/avatars/bot.svg" className="msg-avatar" alt="机器人" />
+                    <BotMessage msg={msg} status={status} />
+                  </div>
                 )}
               </div>
             ))
@@ -184,7 +194,10 @@ export default function App() {
 
           {status === 'parsing' && (
             <div className="bot-bubble">
-              <Spin size="small" /> 解析中...
+              <div className="bubble-content">
+                <img src="/avatars/bot.svg" className="msg-avatar" alt="机器人" />
+                <span><Spin size="small" /> 解析中...</span>
+              </div>
             </div>
           )}
 
@@ -238,6 +251,7 @@ export default function App() {
 function BotMessage({ msg, status }: { msg: Message; status: string }) {
   const { parseInfo, result, summary } = msg
   const [showSql, setShowSql] = useState(false)
+  const [editingDate, setEditingDate] = useState(false)
 
   const modeLabel: Record<string, string> = {
     RULE: '规则匹配',
@@ -260,7 +274,7 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
 
   return (
     <div>
-      {/* 解析信息条 */}
+      {/* 解析信息条 — 日期可点击修改 */}
       <div className="parse-tip">
         <Tag color="green">
           ✅ {modeLabel[parseInfo.queryMode] || parseInfo.queryMode}
@@ -271,9 +285,53 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
         {parseInfo.dimensions.map(d => (
           <span key={d} className="tag">📏 {d}</span>
         ))}
-        {parseInfo.dateInfo?.start && (
-          <span className="tag">
+        {parseInfo.dateInfo?.start && !editingDate && (
+          <span
+            className="tag"
+            style={{ cursor: 'pointer', borderBottom: '1px dashed var(--chat-blue)' }}
+            onClick={() => setEditingDate(true)}
+            title="点击修改日期范围"
+          >
             📅 {parseInfo.dateInfo.start} ~ {parseInfo.dateInfo.end}
+          </span>
+        )}
+        {editingDate && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <DatePicker
+              size="small"
+              defaultValue={parseInfo.dateInfo?.start ? dayjs(parseInfo.dateInfo.start) : undefined}
+              onChange={(d) => {
+                if (d) {
+                  const end = parseInfo.dateInfo?.end || d.format('YYYY-MM-DD')
+                  const dr = { start: d.format('YYYY-MM-DD'), end }
+                  const store = useChatStore.getState()
+                  if (store.status === 'idle') {
+                    sendQuery(msg.content, dr)
+                  }
+                }
+                setEditingDate(false)
+              }}
+              style={{ width: 120 }}
+              placeholder="开始日期"
+            />
+            <span style={{ fontSize: 12, color: 'var(--text-color-fourth)' }}>~</span>
+            <DatePicker
+              size="small"
+              defaultValue={parseInfo.dateInfo?.end ? dayjs(parseInfo.dateInfo.end) : undefined}
+              onChange={(d) => {
+                if (d) {
+                  const start = parseInfo.dateInfo?.start || d.format('YYYY-MM-DD')
+                  const dr = { start, end: d.format('YYYY-MM-DD') }
+                  const store = useChatStore.getState()
+                  if (store.status === 'idle') {
+                    sendQuery(msg.content, dr)
+                  }
+                }
+                setEditingDate(false)
+              }}
+              style={{ width: 120 }}
+              placeholder="结束日期"
+            />
           </span>
         )}
       </div>
@@ -308,6 +366,35 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
             <pre className="sql-block">{msg.sql}</pre>
           )}
         </>
+      )}
+
+      {/* 环比/同比 */}
+      {msg.ratio && Object.keys(msg.ratio).length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+          {Object.entries(msg.ratio).map(([name, r]) => (
+            <Tag key={name} color={r.ratio >= 0 ? 'red' : 'green'}>
+              {name} {r.label}: {r.ratio >= 0 ? '▲' : '▼'}{Math.abs(r.ratio * 100).toFixed(1)}%
+            </Tag>
+          ))}
+        </div>
+      )}
+
+      {/* 下钻推荐 */}
+      {msg.recommendedDimensions && msg.recommendedDimensions.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-color-fourth)' }}>🔍 下钻：</span>
+          {msg.recommendedDimensions.map(d => (
+            <Tag key={d.biz_name} style={{ cursor: 'pointer' }}
+              onClick={() => {
+                const store = useChatStore.getState()
+                if (store.status === 'idle') {
+                  sendQuery(`${msg.content} 按${d.biz_name}分`)
+                }
+              }}>
+              {d.biz_name}
+            </Tag>
+          ))}
+        </div>
       )}
     </div>
   )

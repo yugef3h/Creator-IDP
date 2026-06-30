@@ -33,6 +33,8 @@ from executor import execute as exec_sql
 from backend.context import load_context, save_context, rewrite_multi_turn
 from backend.correctors import correct
 from backend.processors.data_interpret import interpret
+from backend.processors.metric_ratio import calc_ratio
+from backend.processors.dimension_recommend import recommend as recommend_dimensions
 
 # ============================================================
 # 初始化
@@ -101,6 +103,7 @@ async def chat_query(request: Request):
     body = await request.json()
     query_text = body.get("queryText", "").strip()
     chat_id = body.get("chatId", str(uuid.uuid4())[:8])
+    date_range = body.get("dateRange")  # {start: "2026-06-23", end: "2026-06-30"} 可选
 
     if not query_text:
         return StreamingResponse(
@@ -126,6 +129,10 @@ async def chat_query(request: Request):
                 "suggestion": "试试：最近7天播放量趋势、各分区播放量排名",
             })
             return
+
+        # 用户手动指定日期范围 → 覆盖自动提取的
+        if date_range and date_range.get("start") and date_range.get("end"):
+            parse_info.date_info = {"start": date_range["start"], "end": date_range["end"]}
 
         # 发送 parse_info
         yield sse_event("parse_info", data={
@@ -169,8 +176,17 @@ async def chat_query(request: Request):
         # --- Layer 2: 保存上下文 ---
         save_context(chat_id, current_query, parse_info)
 
+        # --- Layer 5: 归因分析 ---
+        ratio_data = calc_ratio(parse_info)
+        drill_dims = recommend_dimensions(parse_info.metrics, parse_info.dimensions)
+
         # 完成
-        yield sse_event("done", data={"chatId": chat_id})
+        yield sse_event("done", data={
+            "chatId": chat_id,
+            "ratio": ratio_data,                          # 环比/同比
+            "recommendedDimensions": drill_dims,          # 下钻推荐
+            "dateInfo": parse_info.date_info,              # 当前周期
+        })
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 

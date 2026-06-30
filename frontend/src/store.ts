@@ -20,6 +20,9 @@ export interface Message {
   summary?: string
   sql?: string
   error?: string
+  ratio?: Record<string, { current: number; previous: number; ratio: number; label: string }>
+  recommendedDimensions?: { biz_name: string; score: number }[]
+  dateInfo?: { start: string; end: string }
 }
 
 export type ChartType = 'METRIC_CARD' | 'METRIC_TREND' | 'METRIC_BAR' | 'METRIC_PIE' | 'TABLE'

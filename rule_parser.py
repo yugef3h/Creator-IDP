@@ -7,8 +7,37 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
+from enum import Enum
+
+import jieba
 
 from models import SchemaElement, SemanticParseInfo
+
+
+class QueryIntent(Enum):
+    DISTRIBUTION = "distribution"   # 分布：单维度聚合，如"各分区分布"
+    RANKING = "ranking"             # 排名/对比：维度 + 排序 + TopN
+    TREND = "trend"                 # 趋势：时间序列
+    CARD = "card"                   # 单值卡片
+    DETAIL = "detail"               # 明细：不聚合
+
+
+# 意图关键词映射
+_INTENT_KEYWORDS = {
+    QueryIntent.DISTRIBUTION: {"分布", "占比", "比例", "构成", "组成", "分别"},
+    QueryIntent.RANKING: {"排名", "排行", "最多", "最少", "最高", "最低", "对比", "比较", "各"},
+    QueryIntent.TREND: {"趋势", "走势", "变化", "每天", "每日", "最近"},
+    QueryIntent.CARD: {"多少", "是多少", "怎么样", "如何"},
+}
+
+
+def classify_intent(query: str) -> QueryIntent:
+    """根据查询关键词判断意图。"""
+    scores = {intent: 0 for intent in QueryIntent}
+    for intent, keywords in _INTENT_KEYWORDS.items():
+        scores[intent] = sum(1 for kw in keywords if kw in query)
+    best = max(scores, key=scores.get)
+    return best if scores[best] > 0 else QueryIntent.CARD
 
 
 def _today() -> str:
@@ -78,9 +107,8 @@ def _has_unrecognized_content(query: str, matched_elements: list[SchemaElement],
                                date_info: dict, trie_keys: set) -> bool:
     """检查查询中是否有未被识别的实义词。
 
-    如果有 → 规则解析不可信，交给 LLM。
+    如果有 → 规则解析不可信，拒绝回答。
     """
-    import jieba
     tokens = [t.strip() for t in jieba.lcut(query) if len(t.strip()) >= 2]
     if not tokens:
         return False
@@ -111,6 +139,33 @@ def parse(
 
     if not metrics:
         return None
+
+    # ---------- 意图分类 ----------
+    intent = classify_intent(query)
+
+    # DISTRIBUTION 模式：去除 trie 误匹配的额外维度
+    # 只保留最相关的维度（别名中最长匹配的那个）
+    if intent == QueryIntent.DISTRIBUTION and len(dimensions) > 1:
+        # 找查询中出现的别名关键词
+        dim_scores = []
+        for d in dimensions:
+            score = 0
+            for alias in d.alias.split(","):
+                alias = alias.strip()
+                if alias and len(alias) >= 2:
+                    # 别名整体出现 → 高分
+                    if alias in query:
+                        score += len(alias) * 10
+                    else:
+                        # 分词看子词匹配
+                        for part in jieba.lcut(alias):
+                            if part in query and len(part) >= 2:
+                                score += len(part)
+            dim_scores.append((score, d))
+        dim_scores.sort(key=lambda x: -x[0])
+        # 只保留得分最高的那个维度
+        if dim_scores and dim_scores[0][0] > 0:
+            dimensions = [dim_scores[0][1]]
 
     # ---------- 日期提取 ----------
     date_info: dict = {}

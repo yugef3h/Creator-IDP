@@ -336,6 +336,25 @@ body {
   line-height: 1.7;
 }
 
+/* --- Bubble Content (icon + text) --- */
+.bubble-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.user-bubble .bubble-content {
+  align-items: center;
+}
+
+.msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
 /* --- Chat Bubbles --- */
 .user-bubble {
   background: linear-gradient(81.62deg, #2870ea 8.72%, var(--chat-blue) 85.01%);

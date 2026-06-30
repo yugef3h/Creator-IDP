@@ -1,6 +1,6 @@
 import { useChatStore } from './store'
 
-export async function sendQuery(queryText: string) {
+export async function sendQuery(queryText: string, dateRange?: { start: string; end: string }) {
   const store = useChatStore.getState()
   const chatId = store.chatId
 
@@ -12,7 +12,7 @@ export async function sendQuery(queryText: string) {
     const response = await fetch('/api/chat/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queryText, chatId }),
+      body: JSON.stringify({ queryText, chatId, dateRange }),
     })
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
@@ -61,6 +61,11 @@ export async function sendQuery(queryText: string) {
 
             case 'done':
               st.setStatus('idle')
+              st.updateLastBot({
+                ratio: event.data?.ratio,
+                recommendedDimensions: event.data?.recommendedDimensions,
+                dateInfo: event.data?.dateInfo,
+              })
               if (event.data?.chatId) {
                 useChatStore.setState({ chatId: event.data.chatId })
               }
