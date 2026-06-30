@@ -1,0 +1,6 @@
+[
+  {"type":"parse_info","data":{"metrics":["views"],"dimensions":["category"],"dateInfo":{},"queryMode":"METRIC_GROUPBY"}},
+  {"type":"query_result","data":{"columns":[{"name":"category","showType":"CATEGORY"},{"name":"SUM(views)","showType":"NUMERIC"}],"rows":[["音乐",969878],["美食",517811],["动画",410106],["生活",162892],["游戏",141770],["知识",120094],["科技",61260],["时尚",3583]],"sql":"SELECT videos.category, SUM(views)\nFROM video_stats JOIN videos ON video_stats.video_id=videos.video_id\nGROUP BY videos.category ORDER BY SUM(views) DESC LIMIT 1000"}},
+  {"type":"summary_chunk","text":"各分区播放量差异显著：音乐区以97万播放量遥遥领先，美食区51万排第二，时尚区仅3,583次排名末位。"},
+  {"type":"done","data":{"chatId":"mock002","ratio":null,"recommendedDimensions":[{"biz_name":"video_title","score":1},{"biz_name":"stat_date","score":1}],"dateInfo":{}}}
+]

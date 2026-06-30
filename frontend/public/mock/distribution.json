@@ -1,0 +1,6 @@
+[
+  {"type":"parse_info","data":{"metrics":["fan_count"],"dimensions":["city"],"dateInfo":{"start":"2026-05-31","end":"2026-06-30"},"queryMode":"METRIC_GROUPBY"}},
+  {"type":"query_result","data":{"columns":[{"name":"city","showType":"CATEGORY"},{"name":"COUNT(fan_id)","showType":"NUMERIC"}],"rows":[["重庆",13],["武汉",12],["西安",11],["成都",10],["北京",9],["广州",8],["南京",8],["深圳",7],["杭州",7],["上海",7]],"sql":"SELECT city, COUNT(fan_id)\nFROM fans\nWHERE follow_time BETWEEN '2026-05-31' AND '2026-06-30'\nGROUP BY city\nORDER BY COUNT(fan_id) DESC LIMIT 1000"}},
+  {"type":"summary_chunk","text":"最近30天新增粉丝分布较均匀，重庆以13人领先，武汉12人紧随其后，前十城市差距不大。"},
+  {"type":"done","data":{"chatId":"mock004","ratio":{"fan_count":{"current":90,"previous":78,"ratio":0.1538,"label":"月环比"}},"recommendedDimensions":[{"biz_name":"gender","score":2},{"biz_name":"age_group","score":2}],"dateInfo":{"start":"2026-05-31","end":"2026-06-30"}}}
+]

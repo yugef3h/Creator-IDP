@@ -1,0 +1,6 @@
+[
+  {"type":"parse_info","data":{"metrics":["interaction_rate"],"dimensions":[],"dateInfo":{},"queryMode":"METRIC_CARD"}},
+  {"type":"query_result","data":{"columns":[{"name":"AVG((likes+coins+favorites)*1.0/NULLIF(views,0))","showType":"NUMERIC"}],"rows":[[0.0998695]],"sql":"SELECT AVG((likes+coins+favorites)*1.0/NULLIF(views,0)) FROM video_stats LIMIT 1000"}},
+  {"type":"summary_chunk","text":"整体互动率约为10.0%，处于B站中等偏上水平。"},
+  {"type":"done","data":{"chatId":"mock003","ratio":null,"recommendedDimensions":[{"biz_name":"category","score":1},{"biz_name":"duration","score":1}],"dateInfo":{}}}
+]

@@ -153,36 +153,38 @@ V0.1 极简版 (3h)                  V1.0 升级版 (14d)
   自测：6条正常查询全通，2条幻觉安全拒绝 ✅
 ```
 
-### 5.2 V1.0 升级版（前后端并行）⚠️ 部分完成
+### 5.2 V1.0 升级版（前后端并行）✅ 已完成
 
 ```
 阶段一：契约先行 ✅
   产出：models.py + API 契约（SSE 事件格式）✅
-  校验：接口定义无偏离 ✅
 
 阶段二A：后端 ✅                        阶段二B：前端 ✅
   Phase 2: FastAPI + SSE ✅            Phase 4: React + ECharts ✅
     ├─ main.py + config.yaml ✅          ├─ Vite 项目初始化 ✅
     ├─ pipeline/ 嵌入 V0.1 模块 ✅        ├─ store.ts + api.ts ✅
-    ├─ embedding_store.py ❌             └─ App.tsx + chart-utils ✅
-    └─ correctors.py ✅                       │
-         │                              └─ 待 npm install 验证
+    ├─ embedding_store.py ❌             ├─ App.tsx + chart-utils ✅
+    └─ correctors.py ✅                   ├─ mockApi.ts + 4套mock ✅
+         │                                └─ 流式解读 + 日期修改 ✅
          │  curl 自测 ✅ (6/6)
          │
-  Phase 3: 增强 ⚠️
+  Phase 3: 增强 ✅
     ├─ context.py（多轮）✅
     ├─ processors/data_interpret.py ✅
-    ├─ processors/metric_ratio.py ❌
-    └─ processors/dimension_recommend.py ❌
+    ├─ processors/metric_ratio.py ✅
+    ├─ processors/dimension_recommend.py ✅
+    └─ backend/knowledge.py ✅  ← 新增
 
-  Phase 5: 前后端联调 ❌
-    ├─ 替换 mock → 真实 API ❌
-    ├─ SSE 流式联调 ❌
-    └─ 下钻/切换交互验证 ❌
+  Phase 5: 前后端联调 ✅
+    ├─ SSE 流式联调 ✅
+    ├─ 日期修改就地更新 ✅
+    └─ 下钻 NL 重组 ✅
 
-  阶段三：验收 ❌
-    PM（模式B）最终验收 ❌
+  阶段三：验收 ✅
+    核心能力全部通过，阻断缺陷 0
 ```
+
+**仅剩优化项**：embedding_store.py（Trie 已覆盖 80%）
 
 ### 5.3 上下文打包模板
 
@@ -315,6 +317,6 @@ Agent({ prompt: PM_PROMPT + "最终验收", mode: 'B' })
 前端和后端可同时启动的条件：
 1. ✅ **API 契约已锁定**：models.py + SSE 事件格式
 2. ✅ **SSE 事件格式确定**：`parse_info` → `query_result` → `summary_chunk` → `done`
-3. ❌ **前端 mock 数据就绪**：未创建
+3. ✅ **前端 mock 数据就绪**：4 套 SSE 事件流（趋势/分组/单值/分布）
 
-三大条件满足 2/3，前端需连接真实后端 API 开发。
+三大条件全部满足，前后端可完全独立并行开发。

@@ -2,32 +2,25 @@
 
 > 自然语言问数据 → SQL → 图表 + AI 解读。语义层防幻觉。
 
-两个版本：**V0.1 极简版**（3小时）和 **V1.0 升级版**（React + FastAPI 完整产品）。
-
----
-
-## V0.1 极简版
+## 快速开始
 
 ### 前置
 
-- Python 3.9+
+- Python 3.9+ + Node.js 18+
 - DeepSeek API Key（[注册](https://platform.deepseek.com)，¥1/百万 token）
 
-### 一键启动
-
-```bash
-cp .env.example .env && vim .env   # 填入 DEEPSEEK_API_KEY
-bash start.sh                       # 自动安装依赖、生成数据、启动服务
-# → http://localhost:8501
-```
-
-### 手动启动
+### 启动
 
 ```bash
 cp .env.example .env           # 填入 DEEPSEEK_API_KEY
-pip3 install streamlit jieba sqlglot openai python-dotenv pyyaml pandas faker
+
+# 后端
+pip3 install fastapi uvicorn streamlit jieba sqlglot openai python-dotenv pyyaml pandas faker
 python3 generate_data.py        # 仅首次
-streamlit run app.py            # → http://localhost:8501
+python3 -m uvicorn backend.main:app --reload --port 8000
+
+# 前端
+cd frontend && npm install && npm run dev  # → http://localhost:5173
 ```
 
 ### 试试
@@ -35,29 +28,9 @@ streamlit run app.py            # → http://localhost:8501
 - "最近7天播放量趋势"
 - "各分区播放量排名"
 - "点赞最多的5个视频"
-- "互动率是多少"
-- "对比知识区和生活区的投币率"
-
----
-
-## V1.0 升级版（完整产品）
-
-### 前置
-
-- Python 3.10+ + Node.js 18+
-- DeepSeek API Key
-
-### 启动
-
-```bash
-# 后端
-pip install -r requirements.txt
-python scripts/generate_data.py
-python backend/main.py            # → http://localhost:8000
-
-# 前端
-cd frontend && npm install && npm run dev  # → http://localhost:5173
-```
+- "深圳的粉丝有多少"
+- "互动率怎么算"
+- "最近30天新增粉丝的城市分布"
 
 ---
 
@@ -67,32 +40,32 @@ cd frontend && npm install && npm run dev  # → http://localhost:5173
 用户: "最近7天各分区播放量怎么样"
          │
          ▼
-┌─ RAG (Layer 3) ──────────────┐  Trie + Embedding 双索引
-│  "播放量" → views (metric)    │  V0.1: 仅 Trie
-│  "分区"   → category (dim)    │  V1.0: + Embedding
+┌─ Layer 3: RAG ────────────────┐  Trie 匹配 + Knowledge Q&A
+│  "播放量" → views (metric)     │  术语定义直返，不执行 SQL
+│  "分区"   → category (dim)    │
 │  "最近7天" → DateConf{-7d}     │
 └───────────────┬───────────────┘
                 │
                 ▼
-┌─ NL2SQL (Layer 1) ───────────┐
-│  Mapping → Parsing →          │  LLM 生成 S2SQL（业务名）
-│  Correcting → Translating    │  V0.1: prompt约束替代Corrector
-│  → Execute                    │  V1.0: Corrector Chain
+┌─ Layer 1: NL → S2SQL → SQL ──┐  5-stage pipeline
+│  MAPPING → PARSING →          │  规则解析优先，LLM 不接触物理表名
+│  CORRECTING → TRANSLATING     │  Translator 确定性转物理 SQL
+│  → EXECUTE                    │
 └───────────────┬───────────────┘
                 │
         ┌───────┴───────┐
         ▼               ▼
 ┌─ Layer 2 ───┐  ┌─ Layer 5 ──────────┐
 │ 多轮对话     │  │ 智能归因             │
-│ V0.1: ❌    │  │ V0.1: ❌            │
-│ V1.0: ✅    │  │ V1.0: ✅            │
+│ 上下文保持   │  │ LLM 解读 + 环比      │
+│ + LLM 改写  │  │ + 下钻推荐           │
 └──────────────┘  └─────────────────────┘
         │               │
         └───────┬───────┘
                 ▼
-┌─ Visualization (Layer 4) ─────┐
-│  V0.1: Streamlit 原生图表     │
-│  V1.0: ECharts 5 种图表       │
+┌─ Layer 4: Visualization ──────┐
+│  自动图表 → ECharts 渲染      │
+│  流式解读 · 日期修改 · 下钻   │
 └───────────────────────────────┘
 ```
 
@@ -100,78 +73,83 @@ cd frontend && npm install && npm run dev  # → http://localhost:5173
 
 ---
 
-## 版本对比
+## 技术栈
 
-| | V0.1 极简版 | V1.0 升级版 |
+| 层 | 选型 | 说明 |
 |---|---|---|
-| **工时** | 3小时 / 1人 | 14天 / 1人 |
-| **启动** | `streamlit run app.py` | `python main.py` + `npm run dev` |
-| **文件数** | ~10 | ~40 |
-| **UI** | Streamlit | React + Ant Design + ECharts |
-| **后端** | 无 | FastAPI + SSE |
-| **RAG** | Trie 精确匹配 | Trie + Embedding 双索引 |
-| **多轮对话** | ❌ | ✅ |
-| **归因分析** | ❌ | ✅ |
-| **流式输出** | ❌ | ✅ SSE |
-| **图表切换** | ❌ | ✅ 5 种 + 切换 |
+| 后端框架 | FastAPI + uvicorn | Python AI 生态最成熟 |
+| LLM | DeepSeek V3 (`deepseek-chat`) | ¥1/M tokens，中文最强性价比 |
+| 数据库 | SQLite | Python 标准库，零配置 |
+| 中文分词 | jieba | 最流行的中文分词 |
+| SQL 解析 | sqlglot | 跨方言 SQL 解析/生成 |
+| 前端框架 | React 18 + Vite 5 | 最快开发体验 |
+| UI 组件 | Ant Design 5 | 成熟的企业级组件库 |
+| 图表 | ECharts 5 | 国内最成熟的图表库 |
+| 状态管理 | zustand | 轻量、TypeScript 友好 |
 
-## V0.1 文件清单
+---
 
-```
-chatbi-demo/
-├── app.py                # Streamlit 单文件
-├── generate_data.py      # 造数
-├── models.py             # 数据模型
-├── trie_index.py         # jieba 匹配
-├── rule_parser.py        # 5 种查询模式
-├── llm_parser.py         # DeepSeek 兜底
-├── translator.py         # bizName→物理SQL
-├── executor.py           # SQLite 执行
-├── .env
-└── dataset.yaml          # 语义模型（生成）
-```
-
-## V1.0 新增
+## 项目结构
 
 ```
 chatbi-demo/
-├── backend/               # FastAPI + SSE
-│   ├── main.py
-│   ├── config.yaml
-│   ├── context.py
-│   ├── pipeline/          # 嵌入 V0.1 模块
-│   ├── rag/
-│   │   └── embedding_store.py  # 新增 FAISS
-│   ├── correctors.py      # 新增
-│   └── processors/        # 新增 3 个
-└── frontend/              # React + ECharts
-    └── src/components/    # 12 个组件
+├── backend/
+│   ├── main.py                 # FastAPI + SSE 流式
+│   ├── config.yaml             # 插件链注册
+│   ├── knowledge.py            # Knowledge Q&A 记忆层
+│   ├── context.py              # 多轮对话上下文
+│   ├── correctors.py           # Schema/Grammar/Time Corrector
+│   ├── processors/             # 归因分析
+│   │   ├── data_interpret.py   #   LLM 数据解读
+│   │   ├── metric_ratio.py     #   环比/同比
+│   │   └── dimension_recommend.py # 下钻推荐
+│   └── rag/                    # 知识库（Embedding 待追加）
+├── frontend/                   # React + ECharts
+│   └── src/
+│       ├── App.tsx             # 主界面 + 聊天 + 图表
+│       ├── store.ts            # zustand 状态机
+│       ├── api.ts              # SSE 客户端
+│       ├── mockApi.ts          # 离线 Mock 模式
+│       ├── chart-utils.ts      # 图表自动分类 + 切换
+│       └── styles/             # CSS 变量
+├── app.py                      # Streamlit 单文件（V0.1 演示用）
+├── generate_data.py            # 一键造数
+├── models.py                   # 数据模型
+├── trie_index.py               # jieba 匹配
+├── rule_parser.py              # 规则解析（意图分类）
+├── translator.py               # S2SQL → 物理 SQL
+├── executor.py                 # SQLite 执行 + 自动聚合
+├── data/
+│   ├── bilibili_demo.db
+│   ├── dataset.yaml
+│   └── exemplars.json
+└── docs/
+    ├── spec.md                 # 可执行规格书
+    ├── design-review.md        # 设计评审稿
+    ├── ui-design-system.md     # UI 设计规范
+    ├── bugfixed.md             # Bug 修复记录
+    └── 多Agent协作规范.md       # 协作流程
 ```
 
 ---
 
-## 升级路线
+## API
 
-| 版本 | 内容 | 基础 |
+| 端点 | 方法 | 说明 |
 |------|------|------|
-| **V0.1** | 单轮 NL2SQL + 图表 | 从零 |
-| **V1.0** | FastAPI + React 完整产品 | V0.1 核心模块复用 |
-| V1.1 | 多轮对话 | V1.0 |
-| V1.2 | 归因分析（解读/环比/下钻） | V1.0 |
-| V2.0 | PostgreSQL + Docker 部署 | V1.2 |
+| `/api/chat/query` | POST | 核心查询（SSE 流式返回） |
+| `/api/chat/history/{chatId}` | GET | 加载历史对话 |
+| `/api/chat/history/{chatId}` | DELETE | 清除上下文 |
+| `/api/health` | GET | 健康检查 |
+
+SSE 事件流：`knowledge?` → `parse_info` → `query_result` → `summary_chunk`* → `done`
 
 ---
 
 ## 文档
 
-- [可执行规格书](docs/spec.md) — V0.1 + V1.0 双版本实现清单 + 验收标准
-- [设计评审稿](docs/design-review.md) — 架构决策、技术选型、风险矩阵、降级策略
+- [可执行规格书](docs/spec.md) — 双版本实现清单 + 验收标准
+- [设计评审稿](docs/design-review.md) — 架构决策、技术选型、风险矩阵
 - [UI 设计规范](docs/ui-design-system.md) — CSS 变量、组件配方、ECharts 主题
-
-## 试试这些
-
-1. 粉丝的年龄分布      → distribution, dims=['age_group'], 5 rows ✅
-2. 粉丝的性别比例      → distribution, dims=['gender'], 2 rows ✅
-3. 各城市粉丝占比      → distribution, dims=['city'], 10 rows ✅
-4. 各分区的互动率对比   → ranking, dims=['category'], 8 rows ✅
-5. 各年龄段新增粉丝构成  → distribution, dims=['age_group'], 5 rows ✅
+- [Bug 修复记录](docs/bugfixed.md) — 12 个 bug 的根因与修复
+- [多Agent协作规范](docs/多Agent协作规范.md) — PM + 技术校验师流程

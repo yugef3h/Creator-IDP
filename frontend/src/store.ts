@@ -24,6 +24,8 @@ export interface Message {
   recommendedDimensions?: { biz_name: string; score: number }[]
   dateInfo?: { start: string; end: string }
   chartTypeOverride?: ChartType
+  suggestions?: string[]
+  knowledgeText?: string
 }
 
 export type ChartType = 'METRIC_CARD' | 'METRIC_TREND' | 'METRIC_BAR' | 'METRIC_PIE' | 'TABLE'

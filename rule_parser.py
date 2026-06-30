@@ -44,6 +44,36 @@ def _today() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+# 图表类型关键词 → chart_type_hint 映射
+_CHART_TYPE_KEYWORDS: dict[str, str] = {
+    "饼图": "METRIC_PIE",
+    "饼状图": "METRIC_PIE",
+    "柱状图": "METRIC_BAR",
+    "柱图": "METRIC_BAR",
+    "条形图": "METRIC_BAR",
+    "趋势图": "METRIC_TREND",
+    "折线图": "METRIC_TREND",
+    "曲线图": "METRIC_TREND",
+    "表格": "TABLE",
+    "数据表": "TABLE",
+    "数值卡": "METRIC_CARD",
+    "卡片": "METRIC_CARD",
+}
+
+
+def _detect_chart_type_hint(query: str) -> str:
+    """检测用户查询中的图表类型偏好。
+
+    支持句式：
+    - "以饼图展示"、"用柱状图"、"换成趋势图"
+    - 直接说 "饼图"、"柱状图"、"表格"
+    """
+    for keyword, hint in _CHART_TYPE_KEYWORDS.items():
+        if keyword in query:
+            return hint
+    return ""
+
+
 def _days_ago(n: int) -> str:
     return (datetime.now() - timedelta(days=n)).strftime("%Y-%m-%d")
 
@@ -57,6 +87,88 @@ def _last_month_start() -> str:
 def _last_month_end() -> str:
     today = datetime.now()
     return (today.replace(day=1) - timedelta(days=1)).strftime("%Y-%m-%d")
+
+
+# ============================================================
+# 查询分类：区分 NL2SQL / 知识问答 / 无关问题
+# ============================================================
+
+# 知识问答关键词
+_KNOWLEDGE_KEYWORDS = {
+    "怎么算", "怎么计算", "如何计算", "计算公式", "公式",
+    "是什么", "什么是", "什么意思", "含义", "定义", "如何定义",
+    "介绍", "解释", "怎么理解", "如何理解", "干嘛的", "有什么用",
+}
+
+# 无关问题时推荐给用户的示例查询
+_SUGGESTION_QUERIES = [
+    "最近7天播放量趋势",
+    "各分区播放量排名",
+    "点赞最多的5个视频",
+    "互动率是多少",
+    "最近30天新增粉丝的城市分布",
+]
+
+
+def classify_query(query: str, matched_elements: list[SchemaElement]) -> str:
+    """分类查询类型。
+
+    Returns:
+        "data_query"  — 正常 NL2SQL 数据查询
+        "knowledge"   — 关于指标/术语的知识问答
+        "off_topic"   — 与当前数据无关的问题
+    """
+    has_knowledge_kw = any(kw in query for kw in _KNOWLEDGE_KEYWORDS)
+
+    if has_knowledge_kw and matched_elements:
+        return "knowledge"
+
+    if not matched_elements:
+        return "off_topic"
+
+    return "data_query"
+
+
+def lookup_knowledge(query: str, matched_elements: list[SchemaElement]) -> str | None:
+    """从匹配到的 SchemaElement 中提取知识定义。
+
+    优先返回指标（有 expression 的优先），其次返回术语。
+    当多个元素匹配时，选择别名与查询最长匹配的那个。
+    """
+    # 分离指标和术语
+    metrics = [e for e in matched_elements if e.element_type == "METRIC"]
+    terms = [e for e in matched_elements if e.element_type == "TERM"]
+
+    candidates = metrics + terms
+    if not candidates:
+        return None
+
+    # 按别名匹配长度排序：最长匹配优先（如 "投币率" > "投币"）
+    def _match_score(el: SchemaElement) -> int:
+        best = 0
+        for alias in el.alias.replace("，", ",").split(","):
+            a = alias.strip()
+            if a and a in query:
+                best = max(best, len(a))
+        return best
+
+    candidates.sort(key=_match_score, reverse=True)
+    best = candidates[0]
+
+    name = best.alias.split(",")[0].strip() if best.alias else best.biz_name
+    lines = [f"📊 **{name}**"]
+
+    if best.description:
+        lines.append(f"> {best.description}")
+
+    if best.expression:
+        lines.append(f"计算公式：`{best.expression}`")
+
+    if best.default_agg and best.element_type == "METRIC":
+        agg_labels = {"SUM": "求和", "COUNT": "计数", "AVG": "平均值"}
+        lines.append(f"默认聚合：{agg_labels.get(best.default_agg, best.default_agg)}")
+
+    return "\n".join(lines)
 
 
 def _this_week_start() -> str:
@@ -108,6 +220,7 @@ def _has_unrecognized_content(query: str, matched_elements: list[SchemaElement],
     """检查查询中是否有未被识别的实义词。
 
     如果有 → 规则解析不可信，拒绝回答。
+    例外：维度修饰词（"按X"、"各X"、"每X"）视为已识别——它们是下钻场景的合法输入。
     """
     tokens = [t.strip() for t in jieba.lcut(query) if len(t.strip()) >= 2]
     if not tokens:
@@ -124,8 +237,21 @@ def _has_unrecognized_content(query: str, matched_elements: list[SchemaElement],
     for word in re.findall(r"\d+", query):
         recognized.add(word)
 
-    unrecognized = [t for t in tokens if t not in recognized]
+    unrecognized = [t for t in tokens if t not in recognized
+                    and not _is_dimension_hint(t)]
     return len(unrecognized) > 0
+
+
+def _is_dimension_hint(token: str) -> bool:
+    """判断 token 是否为维度修饰词（下钻场景的合法输入）。
+
+    如 "按日期"、"各分区"、"每天"、"按时长" 等，虽不直接匹配别名，
+    但明显是对维度的限定，不应视为幻觉。
+    """
+    # "按X" / "各X" / "每X" 模式（X 为1-4个中文字符，如"按视频时长"）
+    if re.match(r"^[按各个每].{1,4}$", token):
+        return True
+    return False
 
 
 def parse(
@@ -374,4 +500,5 @@ def parse(
         date_info=date_info,
         s2sql=s2sql,
         query_mode=query_mode,
+        chart_type_hint=_detect_chart_type_hint(query),
     )

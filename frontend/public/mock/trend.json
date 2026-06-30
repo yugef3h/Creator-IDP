@@ -1,0 +1,6 @@
+[
+  {"type":"parse_info","data":{"metrics":["views"],"dimensions":[],"dateInfo":{"start":"2026-06-23","end":"2026-06-30"},"queryMode":"METRIC_TREND"}},
+  {"type":"query_result","data":{"columns":[{"name":"stat_date","showType":"DATE"},{"name":"SUM(views)","showType":"NUMERIC"}],"rows":[["2026-06-23",10111],["2026-06-24",31804],["2026-06-25",53794],["2026-06-26",27147],["2026-06-27",17803],["2026-06-28",38119],["2026-06-29",25503]],"sql":"SELECT stat_date, SUM(views)\nFROM video_stats\nWHERE stat_date BETWEEN '2026-06-23' AND '2026-06-30'\nGROUP BY stat_date\nORDER BY stat_date LIMIT 1000"}},
+  {"type":"summary_chunk","text":"最近7天播放量整体呈波动走势，6月25日达到峰值53,794次，日均约29,183次。"},
+  {"type":"done","data":{"chatId":"mock001","ratio":{"views":{"current":204281,"previous":180000,"ratio":0.1349,"label":"周环比"}},"recommendedDimensions":[{"biz_name":"category","score":1},{"biz_name":"video_title","score":1},{"biz_name":"duration","score":1}],"dateInfo":{"start":"2026-06-23","end":"2026-06-30"}}}
+]

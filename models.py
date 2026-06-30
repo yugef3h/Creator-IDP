@@ -37,6 +37,7 @@ class SemanticParseInfo:
     query_sql: str = ""       # 翻译后的物理 SQL
     query_mode: str = ""      # "RULE" | "LLM"
     dataset_id: int = 1
+    chart_type_hint: str = "" # 用户自然语言中指定的图表类型：METRIC_PIE / METRIC_BAR / METRIC_TREND / TABLE
 
 
 @dataclass

@@ -3,7 +3,7 @@ import { Input, Button, Spin, Tag, Modal, DatePicker } from 'antd'
 import { SendOutlined, PlusOutlined, EditOutlined, DownOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import ReactECharts from 'echarts-for-react'
-import { useChatStore, type Message } from './store'
+import { useChatStore, type Message, type ChartType } from './store'
 import { sendQuery } from './api'
 import { getChartType, getAlternativeChartTypes, CHART_TYPE_CONFIG } from './chart-utils'
 
@@ -13,7 +13,7 @@ const EXAMPLES = [
   '点赞最多的5个视频',
   '互动率是多少',
   '最近30天新增粉丝的城市分布',
-  '深圳的粉丝有多少',
+  '各城市粉丝分步占比，用饼图',
   '帮我预测下周播放量',
 ]
 
@@ -258,8 +258,33 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
     return ''
   })()
 
-  // 尚无 parseInfo 时显示骨架状态
+  // 尚无 parseInfo 时：知识问答 / 加载中
   if (!parseInfo) {
+    // 知识问答（非 NL2SQL）：直接显示文本
+    if (msg.knowledgeText) {
+      return (
+        <div>
+          <div className="knowledge-answer">{msg.knowledgeText}</div>
+          {msg.suggestions && msg.suggestions.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div className="knowledge-suggestion-label">💡 试试这些数据查询：</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                {msg.suggestions.map(s => (
+                  <Tag key={s} style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      if (useChatStore.getState().status === 'idle') {
+                        sendQuery(s)
+                      }
+                    }}>
+                    {s}
+                  </Tag>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
     return (
       <div className="loading-row">
         <Spin size="small" /> 正在理解问题...
@@ -269,6 +294,11 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
 
   return (
     <div>
+      {/* 知识定义（指标类知识问答 + 数据查询） */}
+      {msg.knowledgeText && (
+        <div className="knowledge-answer" style={{ marginBottom: 10 }}>{msg.knowledgeText}</div>
+      )}
+
       {/* 解析信息条 — 日期可点击修改 + 图表切换 */}
       <div className="parse-tip">
         <Tag color="green">
@@ -377,8 +407,8 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
           <span style={{ fontSize: 12, color: 'var(--text-color-fourth)' }}>🔍 下钻：</span>
           {msg.recommendedDimensions.map(d => {
             const dimNL: Record<string, string> = {
-              category: '各分区', video_title: '各视频', stat_date: '每天',
-              duration: '按时长', gender: '按性别', age_group: '各年龄段',
+              category: '各分区', video_title: '各视频', stat_date: '按日期',
+              duration: '按视频时长', gender: '按性别', age_group: '各年龄段',
               city: '各城市',
             }
             const suffix = dimNL[d.biz_name] || `按${d.biz_name}`
@@ -402,6 +432,64 @@ function BotMessage({ msg, status }: { msg: Message; status: string }) {
 }
 
 /* ============================================================
+   ChartTypeSwitcher — 图表类型切换图标
+   ============================================================ */
+function ChartTypeSwitcher({ msg }: { msg: Message }) {
+  const { result } = msg
+  if (!result) return null
+
+  const currentType = msg.chartTypeOverride || getChartType(result.columns, result.rows)
+  const alternatives = getAlternativeChartTypes(currentType, result.columns, result.rows)
+  if (alternatives.length === 0) return null
+
+  const handleSwitch = (type: ChartType) => {
+    const store = useChatStore.getState()
+    const msgs = [...store.messages]
+    const idx = msgs.findIndex(m => m.id === msg.id)
+    if (idx >= 0) {
+      msgs[idx] = { ...msgs[idx], chartTypeOverride: type }
+      useChatStore.setState({ messages: msgs })
+    }
+  }
+
+  // Reset to auto if clicking current type
+  const handleReset = () => {
+    const store = useChatStore.getState()
+    const msgs = [...store.messages]
+    const idx = msgs.findIndex(m => m.id === msg.id)
+    if (idx >= 0 && msgs[idx].chartTypeOverride) {
+      msgs[idx] = { ...msgs[idx], chartTypeOverride: undefined }
+      useChatStore.setState({ messages: msgs })
+    }
+  }
+
+  const curConfig = CHART_TYPE_CONFIG[currentType]
+
+  return (
+    <span className="chart-switcher">
+      <span className="chart-switcher-label">展示：</span>
+      <span
+        className={`chart-switcher-btn ${!msg.chartTypeOverride ? 'active' : ''}`}
+        onClick={handleReset}
+        title={curConfig.label + '（自动）'}
+      >
+        {curConfig.icon}
+      </span>
+      {alternatives.map(alt => (
+        <span
+          key={alt.type}
+          className="chart-switcher-btn"
+          onClick={() => handleSwitch(alt.type)}
+          title={`切换为${alt.label}`}
+        >
+          {alt.icon}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/* ============================================================
    ChartView — 图表渲染
    ============================================================ */
 function ChartView({ msg }: { msg: Message }) {
@@ -409,7 +497,7 @@ function ChartView({ msg }: { msg: Message }) {
   if (!result) return null
 
   const { columns, rows } = result
-  const chartType = getChartType(columns, rows)
+  const chartType = msg.chartTypeOverride || getChartType(columns, rows)
 
   // 单值卡片
   if (chartType === 'METRIC_CARD') {
@@ -453,8 +541,41 @@ function ChartView({ msg }: { msg: Message }) {
     return <div className="chart-area"><ReactECharts option={option} style={{ height: 300, width: '100%' }} notMerge={true} /></div>
   }
 
-  // 柱状图 / 饼图
-  if ((chartType === 'METRIC_BAR' || chartType === 'METRIC_PIE') && catIdx >= 0 && numIdx >= 0) {
+  // 饼图
+  if (chartType === 'METRIC_PIE' && catIdx >= 0 && numIdx >= 0) {
+    const pieColors = ['#1b4aef', '#31c462', '#f87653', '#ffb924', '#00d59c', '#ff4d4f', '#3a64ff', '#ff7800', '#446dff', '#ff8193']
+    const option = {
+      tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      legend: {
+        orient: 'vertical',
+        right: 10,
+        top: 'center',
+        textStyle: { fontSize: 12 },
+      },
+      series: [{
+        type: 'pie',
+        radius: ['40%', '68%'],
+        center: ['40%', '50%'],
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderRadius: 4,
+          borderColor: '#fff',
+          borderWidth: 2,
+          color: (params: any) => pieColors[params.dataIndex % pieColors.length],
+        },
+        label: { fontSize: 12, formatter: '{b}\n{d}%' },
+        emphasis: {
+          label: { fontSize: 16, fontWeight: 'bold' },
+          scaleSize: 8,
+        },
+        data: rows.map(r => ({ name: String(r[catIdx]), value: r[numIdx] })),
+      }],
+    }
+    return <div className="chart-area"><ReactECharts option={option} style={{ height: 320, width: '100%' }} notMerge={true} /></div>
+  }
+
+  // 柱状图
+  if (chartType === 'METRIC_BAR' && catIdx >= 0 && numIdx >= 0) {
     const option = {
       tooltip: { trigger: 'axis' },
       grid: { left: 50, right: 20, top: 20, bottom: rows.length > 5 ? 60 : 30 },

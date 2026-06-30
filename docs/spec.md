@@ -348,7 +348,18 @@ Q2: "按分区分开"            → Llm改写为 "上周各分区播放量趋�
 Q3: "只看知识区"            → LLM改写 + filter → 重新查询
 ```
 
-### 3.3 归因分析
+### 3.3 Knowledge Q&A（记忆层）
+
+**文件**：`backend/knowledge.py`
+
+当用户问 "三连是什么"、"互动率怎么算" 时，匹配 dataset.yaml 中的术语/指标定义，直接返回描述，不执行 SQL。
+
+- 知识类模式识别：`是什么`、`怎么算`、`的定义`、`公式`、`什么意思`
+- 术语直接返回 definition text
+- 指标返回 description + expression + default_agg
+- 指标名查询（如"播放量是多少"）走 NL2SQL，不误判为知识
+
+### 3.4 归因分析
 
 **文件**：`backend/processors/`
 
@@ -406,11 +417,13 @@ function getChartType(cols, rows): ChartType {
 
 ## Phase 5：打磨
 
-- SSE 流式 LLM 解读（逐字输出）
-- 图表/表格一键切换
-- 折线⇔柱状 / 饼图⇔柱状切换
-- 下钻维度点击 → re-query
-- 日期选择器 → re-query
+- ✅ SSE 流式 LLM 解读（逐字输出）
+- ✅ 图表/表格一键切换（ChartTypeSwitcher 组件，parse-tip 中显示备选类型图标）
+- ✅ 折线⇔柱状 / 饼图⇔柱状切换（getAlternativeChartTypes 自动过滤不兼容类型）
+- ✅ NL 图表识别：用户说"以饼图展示"自动切换到饼图（rule_parser:_detect_chart_type_hint → SSE chartTypeHint → 前端自动应用）
+- ✅ 下钻维度点击 → re-query
+- ✅ 日期选择器 → re-query
+- ✅ 数据概览可展开：点击箭头展开所有指标/维度 tag
 
 ---
 
@@ -439,4 +452,5 @@ DB_PATH=./data/bilibili_demo.db
 7. "最近30天新增粉丝的城市分布" → 饼图
 8. "上周播放量趋势" → "按分区分开" → 多轮改写
 9. 点击下钻维度 → 新查询
-10. 图表/表格切换 → 视图切换
+10. ✅ 图表/表格切换 → 视图切换
+11. "各分区播放量以饼图展示" → 自动渲染饼图（NL 图表识别）

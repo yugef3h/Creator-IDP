@@ -1,6 +1,9 @@
 import { useChatStore } from './store'
+import { mockQuery, USE_MOCK } from './mockApi'
 
 export async function sendQuery(queryText: string, dateRange?: { start: string; end: string }, replaceLast = false) {
+  if (USE_MOCK) return mockQuery(queryText, replaceLast)
+
   const store = useChatStore.getState()
   const chatId = store.chatId
 
@@ -48,7 +51,10 @@ export async function sendQuery(queryText: string, dateRange?: { start: string; 
           switch (event.type) {
             case 'parse_info':
               st.setStatus('executing')
-              st.updateLastBot({ parseInfo: event.data })
+              st.updateLastBot({
+                parseInfo: event.data,
+                ...(event.data.chartTypeHint ? { chartTypeOverride: event.data.chartTypeHint } : {}),
+              })
               break
 
             case 'query_result':
@@ -66,6 +72,17 @@ export async function sendQuery(queryText: string, dateRange?: { start: string; 
             case 'summary_chunk':
               summaryBuf += event.text
               st.updateLastBot({ summary: summaryBuf })
+              break
+
+            case 'knowledge':
+              st.updateLastBot({
+                knowledgeText: event.data.text,
+                suggestions: event.data.suggestions,
+              })
+              // willQuery=true 表示后面还有数据查询 → 不设 done
+              if (!event.data.willQuery) {
+                st.setStatus('done')
+              }
               break
 
             case 'done':

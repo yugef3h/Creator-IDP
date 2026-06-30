@@ -26,7 +26,7 @@ from fastapi.responses import StreamingResponse
 
 from models import SchemaElement, SemanticParseInfo
 from trie_index import build_index, match
-from rule_parser import parse as rule_parse
+from rule_parser import parse as rule_parse, classify_query, lookup_knowledge, _SUGGESTION_QUERIES
 from translator import translate
 from executor import execute as exec_sql
 
@@ -35,6 +35,7 @@ from backend.correctors import correct
 from backend.processors.data_interpret import interpret
 from backend.processors.metric_ratio import calc_ratio
 from backend.processors.dimension_recommend import recommend as recommend_dimensions
+from backend.knowledge import match_knowledge
 
 # ============================================================
 # 初始化
@@ -71,6 +72,13 @@ for d in ds.get("dimensions", []):
         join_table=d.get("join_table"), join_key=d.get("join_key"),
         table=d.get("table"),
         element_type="DIMENSION",
+    ))
+for t in ds.get("terms", []):
+    ELEMENTS.append(SchemaElement(
+        id=t["id"], biz_name=t["name"], name=None,
+        alias=t.get("alias", ""), description=t.get("description", ""),
+        data_type="CATEGORY", default_agg="",
+        element_type="TERM",
     ))
 
 INDEX = build_index(ELEMENTS)
@@ -118,8 +126,52 @@ async def chat_query(request: Request):
         if history:
             current_query = rewrite_multi_turn(query_text, history)
 
+        # --- Layer 3: Knowledge Q&A（记忆层：术语定义直返，不走SQL）---
+        knowledge = match_knowledge(current_query)
+        if knowledge:
+            yield sse_event("knowledge", data={
+                "text": knowledge["text"],
+                "type": knowledge["type"],
+                "term": knowledge["term"],
+                "willQuery": False,
+            })
+            yield sse_event("done", data={"chatId": chat_id})
+            return
+
         # --- Layer 3: RAG + Layer 1: Parse ---
         matched = match(current_query, INDEX)
+
+        # --- 查询分类：知识问答 / 无关问题 / 数据查询 ---
+        qtype = classify_query(current_query, matched)
+
+        if qtype == "off_topic":
+            yield sse_event("knowledge", data={
+                "text": (
+                    f"抱歉，「{current_query}」不在我当前的数据范围内。\n\n"
+                    f"我目前支持查询 B站视频数据，包括：\n"
+                    f"📊 指标：播放量、点赞、投币、收藏、弹幕、评论、分享、互动率、投币率、粉丝数\n"
+                    f"📏 维度：分区、日期、视频、时长、性别、年龄、城市\n\n"
+                    f"💡 试试这些："
+                ),
+                "suggestions": _SUGGESTION_QUERIES,
+            })
+            yield sse_event("done", data={})
+            return
+
+        if qtype == "knowledge":
+            answer = lookup_knowledge(current_query, matched)
+            has_metrics = any(e.element_type == "METRIC" for e in matched)
+            if answer:
+                yield sse_event("knowledge", data={
+                    "text": answer,
+                    "willQuery": has_metrics,  # 有指标 → 继续查数据
+                })
+            if not has_metrics:
+                # 纯术语知识问答（如"三连是什么意思"），直接结束
+                yield sse_event("done", data={})
+                return
+            # 指标类知识问答（如"什么是弹幕"），继续走 NL2SQL 查数据
+
         preset_date = None
         if date_range and date_range.get("start") and date_range.get("end"):
             preset_date = {"start": date_range["start"], "end": date_range["end"]}
@@ -137,6 +189,7 @@ async def chat_query(request: Request):
             "dimensions": [d.biz_name for d in parse_info.dimensions],
             "dateInfo": parse_info.date_info,
             "queryMode": parse_info.query_mode,
+            "chartTypeHint": parse_info.chart_type_hint,
         })
 
         # --- Correct ---
