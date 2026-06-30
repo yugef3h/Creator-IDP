@@ -1,6 +1,6 @@
-# ChatBI MVP 可执行规格书
+# ChatBI 可执行规格书
 
-> 业务：B站创作者视频数据分析 | 架构：NL → S2SQL → Physical SQL | 双版本：极简演示 + 完整产品
+> 业务：B站创作者视频数据分析 | 架构：NL → S2SQL → Physical SQL | 技术栈：React + FastAPI + SQLite + DeepSeek
 
 ---
 
@@ -13,7 +13,7 @@
 | **RAG** | Trie 匹配 + Knowledge Q&A |
 | **解析** | 规则优先，禁用 LLM 兜底防幻觉 |
 | **纠正** | Corrector Chain（Schema / Grammar / Time） |
-| **多轮对话** | ✅ 上下文保持 + LLM 改写 |
+| **多轮对话** | ✅ 上下文保持 |
 | **归因分析** | ✅ LLM解读 + 环比 + 下钻推荐 |
 | **图表** | ECharts 5 种图表 + 自动分类 + 切换 |
 
@@ -27,7 +27,7 @@
 | `models.py` | 4 个 dataclass |
 | `trie_index.py` | jieba 分词 + 倒排索引 |
 | `rule_parser.py` | 意图分类 + 5 种查询模式 → S2SQL |
-| `translator.py` | bizName → 物理列名/表达式 + JOIN + LIMIT |
+| `translator.py` | bizName → 物理列名/表达式 + JOIN + LIMIT（确定性） |
 | `executor.py` | SQLite 执行 + 自动聚合兜底 |
 | `backend/main.py` | FastAPI + SSE 流式 |
 | `backend/knowledge.py` | Knowledge Q&A 记忆层 |
@@ -37,416 +37,145 @@
 
 ---
 
-## 数据底座
+## 实现阶段
 
-```
-用户输入 "最近7天各分区播放量"
-  → Streamlit 聊天框
-  → Trie 匹配到 views + category + DateConf
-  → 规则解析生成 S2SQL
-  → Translator 转物理 SQL
-  → SQLite 执行
-  → Streamlit 显示柱状图 + 表格
-```
-
-## V0.1 文件清单
-
-```
-chatbi-demo/
-├── app.py                # Streamlit 单文件 (~200行)，集成所有模块
-├── generate_data.py      # 造数脚本
-├── models.py             # 数据模型
-├── trie_index.py         # Trie 匹配
-├── rule_parser.py        # 规则解析（5模式）
-├── llm_parser.py         # LLM 解析（兜底）
-├── translator.py         # S2SQL → 物理SQL
-├── executor.py           # SQLite 执行
-├── dataset.yaml          # 语义模型（造数时生成）
-├── exemplars.json        # few-shot（造数时生成）
-├── .env                  # DEEPSEEK_API_KEY
-└── README.md
-```
-
-## V0.1 时间分配
-
-### 第1小时：数据 + 核心模块（可 3 人并行）
-
-| 分钟 | 人A | 人B | 人C |
-|------|-----|-----|-----|
-| 0-20 | `generate_data.py` 造数 | `trie_index.py` | `translator.py` + `executor.py` |
-| 20-40 | `models.py` | `llm_parser.py` | 调试 translator |
-| 40-60 | `rule_parser.py` | 调试 llm_parser | 联调 A 的 parser |
-
-> 人B、人C 在 0-20 分钟可先用硬编码的 models 桩开始写，等人A交出 models.py 后替换。
-
-### 第2小时：集成 + LLM 兜底
-
-| 分钟 | 人A | 人B | 人C |
-|------|-----|-----|-----|
-| 0-30 | `app.py` Streamlit UI 骨架 | 联调 rule_parser + trie_index | 联调 translator + executor |
-| 30-60 | app.py 集成规则解析路径 | 集成 LLM 解析路径 | 准备 5 条演示查询 + 端到端测试 |
-
-### 第3小时：打磨 + 演示
-
-| 分钟 | 全员 |
-|------|------|
-| 0-20 | 走 5 条演示查询，修 bug |
-| 20-40 | UI 优化（错误提示、示例问题、加载状态） |
-| 40-60 | README + 录屏/截图 |
-
-> **单人开发**：按 A→B→C 顺序串行，约 4-5 小时。关键路径是 造数→模型→解析→集成。
-
-## V0.1 砍掉清单
-
-| 砍掉 | 理由 | 怎么弥补 |
-|------|------|---------|
-| ❌ Embedding / FAISS | 首次下载 bge 模型 10 分钟 | 把全部 schema 元数据注入 LLM prompt，24 个元素不超过 500 token |
-| ❌ 多轮对话 | 需要上下文持久化 + LLM 改写 | 用户每次输入完整问题 |
-| ❌ Corrector Chain | 3 个正确器开发量大 | LLM prompt 强约束："必须用聚合函数、GROUP BY 维度必须在 SELECT 中" |
-| ❌ React 前端 | npm install 5分钟 + 写组件半天 | Streamlit 原生 `st.chat_input` + `st.bar_chart` + `st.dataframe` |
-| ❌ SSE 流式 | 需要 FastAPI + EventSource | `st.spinner("查询中...")` + 一次性返回 |
-| ❌ 归因分析 | LLM解读/环比/下钻均需额外开发 | 用户直接看图表+表格，自己判断 |
-| ❌ 自一致性投票 | 3 次 LLM 调用 | 单次调用 + temperature=0.1 |
-
-## V0.1 各模块要点
-
-### generate_data.py（与人B、人C并行，先写）
-
-```python
-# 精简到 3 张表、1000 行事实数据即可（3小时演示够用）
-# 输出：bilibili_demo.db + dataset.yaml + exemplars.json
-# 50 视频 × 8 分区 × 30 天 = 足够演示
-```
-
-### models.py（20分钟，人A交付给人B和人C）
-
-```python
-@dataclass
-class SchemaElement:
-    biz_name: str       # "views"
-    name: str           # "views"（物理列名）
-    alias: str          # "播放量,播放数"
-    data_type: str      # "NUMERIC" | "DATE" | "CATEGORY"
-    default_agg: str    # "SUM" | "COUNT" | "AVG"
-    expression: str     # 派生指标公式，如 "(likes+coins)/NULLIF(views,0)"
-    join_table: str     # 跨表维度用，如 "videos"
-    join_column: str    # 跨表维度用，如 "category"
-
-@dataclass
-class SemanticParseInfo:
-    metrics: list[SchemaElement]
-    dimensions: list[SchemaElement]
-    filters: list[dict]     # [{biz_name, operator, value}]
-    date_info: dict         # {start, end}
-    s2sql: str              # LLM/规则生成的语义SQL
-    query_sql: str           # 翻译后的物理SQL
-    query_mode: str          # "RULE" | "LLM"
-
-@dataclass
-class QueryResult:
-    columns: list[str]
-    rows: list[tuple]
-    sql: str                # 执行的物理SQL（显示用）
-    parse_info: SemanticParseInfo
-```
-
-### trie_index.py（人B，不依赖造数）
-
-```python
-# 简化版：不做 marisa-trie，直接用 dict + jieba
-def build_index(elements: list[SchemaElement]) -> dict:
-    """{token: [SchemaElement]} """
-    index = {}
-    for el in elements:
-        for alias in el.alias.split(","):
-            for token in jieba.lcut(alias.strip()):
-                index.setdefault(token, []).append(el)
-    return index
-
-def match(query: str, index: dict) -> list[SchemaElement]:
-    tokens = jieba.lcut(query)
-    matched = []
-    for t in tokens:
-        if t in index:
-            matched.extend(index[t])
-    return list(set(matched))  # 按 element id 去重
-```
-
-### rule_parser.py（人A，依赖 models.py）
-
-```python
-# 5 种模式，按优先级匹配：
-PATTERNS = [
-    ("METRIC_GROUPBY",  r"各.+的?(.+)" ),          # "各分区播放量"
-    ("METRIC_FILTER",   r"(.+)的(.+)排名" ),        # "知识区的播放量排名"
-    ("METRIC_ORDERBY",  r"(.+)最[多高]的?(\d+)?个" ),# "点赞最多的5个视频"
-    ("METRIC_TREND",    r"最近(\d+)天(.+)趋势" ),    # "最近7天播放量趋势"
-    ("METRIC_CARD",     r"(.+)是多少" ),            # "播放量是多少"
-]
-# 匹配到就生成 S2SQL，没匹配到返回 None → 走 LLM
-```
-
-### llm_parser.py（人B）
-
-```python
-# 把 Trie 匹配结果 + 全部 schema + few-shot 注入 prompt
-# prompt 强约束：
-#   1. 只用 Schema 中列出的 bizName
-#   2. 每个指标必须加聚合函数
-#   3. GROUP BY 的维度必须在 SELECT 中
-#   4. 日期过滤放 WHERE
-#   5. 只输出 SQL，不要解释
-```
-
-### translator.py（人C，独立）
-
-```python
-def translate(s2sql: str, schema: dict) -> str:
-    # 1. 替换 bizName → 物理名
-    # 2. 处理派生指标表达式
-    # 3. 添加 JOIN（跨表维度）
-    # 4. 添加 LIMIT 1000
-    # 使用 sqlglot 解析 AST 或简单正则替换
-    # 确定性代码，不经过 LLM
-```
-
-### app.py（第2小时，人A集成）
-
-```python
-import streamlit as st
-
-st.title("B站创作数据中心")
-
-query = st.chat_input("输入你的问题...")
-if query:
-    # 1. Trie 匹配
-    matched = trie.match(query, index)
-    
-    # 2. 解析
-    parse_info = rule_parser.parse(query, matched) or llm_parser.parse(query, matched)
-    
-    # 3. 翻译
-    physical_sql = translator.translate(parse_info.s2sql)
-    
-    # 4. 执行
-    result = executor.execute(physical_sql)
-    
-    # 5. 展示
-    st.write(f"```sql\n{physical_sql}\n```")  # 展示 SQL
-    if len(result.rows[0]) == 2 and is_numeric(result.rows[0][1]):
-        st.bar_chart(result.rows)              # 柱状图
-    else:
-        st.dataframe(result.rows)              # 表格
-```
-
-## V0.1 验收（5 条演示查询）
-
-| # | 输入 | 期望 |
-|---|------|------|
-| 1 | 最近7天播放量趋势 | 折线图（日期×播放量） |
-| 2 | 各分区播放量排名 | 柱状图（分区×播放量） |
-| 3 | 点赞最多的5个视频 | 表格（视频名×点赞数） |
-| 4 | 互动率是多少 | 大数字（单值） |
-| 5 | 对比知识区和生活区的投币率 | 柱状图（两个分区的投币率） |
-
-**一键启动**：
-```bash
-pip install streamlit jieba sqlglot openai python-dotenv pyyaml
-python generate_data.py
-streamlit run app.py
-```
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| Phase 1 | 数据底座：造数 + 语义模型 | ✅ |
+| Phase 2 | 后端服务：FastAPI + SSE + 插件链 + Corrector | ✅ |
+| Phase 3 | 增强：Knowledge Q&A + 多轮对话 + 归因分析 | ✅ |
+| Phase 4 | 前端：React + ECharts + SSE 流式 | ✅ |
+| Phase 5 | 联调打磨：流式解读 + 日期修改 + 下钻 + 图表切换 | ✅ |
 
 ---
 
-# V1.0 升级版
+## Phase 1：数据底座
 
-> 在 V0.1 基础上增量构建。所有 V0.1 模块复用，新增 FastAPI 后端 + React 前端。
+**文件**：`generate_data.py`
 
-## V1.0 新增内容
+**输出**：`bilibili_demo.db`（3 张表）+ `dataset.yaml` + `exemplars.json`
 
-| 阶段 | 内容 | 工期 | 依赖 |
-|------|------|------|------|
-| Phase 1 | 数据底座：复用 V0.1 造数 | - | 已完成 |
-| Phase 2 | 后端服务：FastAPI + SSE + 插件链 + Embedding | 3天 | V0.1 模块 |
-| Phase 3 | 核心增强：Corrector Chain + 多轮对话 + 归因分析 | 3天 | Phase 2 |
-| Phase 4 | 前端界面：React + ECharts | 5天 | Phase 2 |
-| Phase 5 | 打磨：流式解读 + 下钻 + 图表切换 | 3天 | Phase 4 |
+**数据表**：
+- `videos`：50 条视频，8 个分区
+- `video_stats`：≥2500 行，覆盖 90 天
+- `fans`：2000 条粉丝画像
 
-## V1.0 vs V0.1 差异
+**语义模型**：9 个指标（含 2 个派生指标）+ 7 个维度 + 3 个术语
 
-| 文件 | V0.1 | V1.0 |
+---
+
+## Phase 2：FastAPI 后端
+
+### API
+
+| 端点 | 方法 | 说明 |
 |------|------|------|
-| `app.py` | Streamlit 单文件 | 删除，替换为 FastAPI + React |
-| `models.py` | 复用 | 不变 |
-| `trie_index.py` | 复用 | 不变 |
-| `rule_parser.py` | 复用 | 不变 |
-| `llm_parser.py` | 复用 | 增强：self-consistency 可选 |
-| `translator.py` | 复用 | 增强：多表 JOIN + 方言支持 |
-| `executor.py` | 复用 | 增强：连接池 |
-| **新增** `embedding_store.py` | ❌ | ✅ FAISS + bge-small-zh |
-| **新增** `correctors.py` | ❌ | ✅ Schema/Grammar/Time Corrector |
-| **新增** `context.py` | ❌ | ✅ 多轮对话持久化 |
-| **新增** `processors/` | ❌ | ✅ 3 个归因 Processor |
-| **新增** `backend/main.py` | ❌ | ✅ FastAPI + SSE |
-| **新增** `frontend/` | ❌ | ✅ React + ECharts 全套 |
+| `/api/chat/query` | POST | 核心查询（SSE 流式） |
+| `/api/chat/history/{chatId}` | GET | 加载历史 |
+| `/api/chat/history/{chatId}` | DELETE | 清除上下文 |
+| `/api/health` | GET | 健康检查 |
 
-## Phase 2：后端服务
+SSE 事件：`knowledge?` → `parse_info` → `query_result` → `summary_chunk`* → `done`
 
-### 2.1 FastAPI + SSE
-
-**文件**：`backend/main.py`
-
-```python
-# POST /api/chat/query  →  SSE 流式
-#   event: parse_info  →  {metrics, dimensions, dateInfo}
-#   event: result      →  {columns, rows, sql}
-#   event: done        →  {queryId}
-```
-
-### 2.2 插件链注册
-
-**文件**：`backend/config.yaml`
+### 插件链
 
 ```yaml
 pipeline:
-  mappers: [KeywordMapper, EmbeddingMapper]     # V0.1 Trie + 新增 Embedding
-  parsers: [RuleSqlParser, LLMSqlParser]        # 复用 V0.1
-  correctors: [SchemaCorrector, GrammarCorrector, TimeCorrector]  # 新增
-  processors: [DataInterpretProcessor]           # 新增
+  mappers: [KeywordMapper]
+  parsers: [RuleSqlParser]
+  correctors: [SchemaCorrector, GrammarCorrector, TimeCorrector]
+  processors: [DataInterpretProcessor]
 ```
 
-### 2.3 Embedding 双索引
+### Corrector Chain
 
-**文件**：`backend/rag/embedding_store.py`
-
-- 首次启动下载 bge-small-zh-v1.5（24MB）
-- 对每个 schema element 生成向量：`"{biz_name} | {description} | {alias}"`
-- 存入 FAISS IndexFlatIP
-- 用户查询时 top-5 检索，作为 Trie 的补充
-
-## Phase 3：核心增强
-
-### 3.1 Corrector Chain
-
-| Corrector | 做什么 | 文件 |
-|-----------|--------|------|
-| SchemaCorrector | 修正 LLM 编造的字段名 → 最近的合法 bizName | `correctors.py` |
-| GrammarCorrector | SELECT 非聚合字段必须在 GROUP BY | `correctors.py` |
-| TimeCorrector | 有 dateInfo 但 SQL 无 WHERE → 补充 | `correctors.py` |
-
-### 3.2 多轮对话
-
-**文件**：`backend/context.py`
-
-```
-Q1: "上周播放量趋势"        → 折线图，保存 SemanticParseInfo
-Q2: "按分区分开"            → Llm改写为 "上周各分区播放量趋势" → 重新查询
-Q3: "只看知识区"            → LLM改写 + filter → 重新查询
-```
-
-### 3.3 Knowledge Q&A（记忆层）
-
-**文件**：`backend/knowledge.py`
-
-当用户问 "三连是什么"、"互动率怎么算" 时，匹配 dataset.yaml 中的术语/指标定义，直接返回描述，不执行 SQL。
-
-- 知识类模式识别：`是什么`、`怎么算`、`的定义`、`公式`、`什么意思`
-- 术语直接返回 definition text
-- 指标返回 description + expression + default_agg
-- 指标名查询（如"播放量是多少"）走 NL2SQL，不误判为知识
-
-### 3.4 归因分析
-
-**文件**：`backend/processors/`
-
-| Processor | 做什么 |
-|-----------|--------|
-| DataInterpret | 问题 + top-20行 → LLM 生成 2-4 句中文解读 |
-| MetricRatioCalc | 查询上一周期 → 计算环比/同比 |
-| DimensionRecommend | 根据当前查询的维度，推荐未使用的关联维度 |
-
-## Phase 4：React 前端
-
-### 4.1 技术栈
-
-Vite 5 + React 18 + TypeScript + Ant Design 5 + ECharts 5 + zustand
-
-### 4.2 组件树
-
-```
-<ChatPage>
-  <ChatHeader />                    # "B站创作数据中心"
-  <MessageContainer>
-    <UserBubble />                  # 用户消息
-    <ParseTip />                    # 意图解析卡片（metrics/dims/date）
-    <ChartPanel>                    # SSE 逐步渲染
-      <LineChart />                 # METRIC_TREND
-      <BarChart />                  # METRIC_BAR
-      <PieChart />                  # METRIC_PIE
-      <MetricCard />                # 大数字
-      <DataTable />                 # 表格
-    </ChartPanel>
-    <InsightMarkdown />             # LLM 解读（流式输出）
-    <DrillDownChips />              # 下钻维度
-  </MessageContainer>
-  <ChatInput />                     # 输入框
-  <ConversationSidebar />           # 历史对话
-</ChatPage>
-```
-
-### 4.3 图表自动分类
-
-```typescript
-// frontend/src/chart-utils.ts
-function getChartType(cols, rows): ChartType {
-  if (单行单数值) return 'METRIC_CARD'
-  if (日期列+多行) return 'METRIC_TREND'
-  if (分类列+单数值+≤10行) return 'METRIC_PIE'
-  if (分类列+单数值+≤50行) return 'METRIC_BAR'
-  return 'TABLE'
-}
-```
-
-### 4.4 UI 规范
-
-详见 [ui-design-system.md](ui-design-system.md)。
-
-## Phase 5：打磨
-
-- ✅ SSE 流式 LLM 解读（逐字输出）
-- ✅ 图表/表格一键切换（ChartTypeSwitcher 组件，parse-tip 中显示备选类型图标）
-- ✅ 折线⇔柱状 / 饼图⇔柱状切换（getAlternativeChartTypes 自动过滤不兼容类型）
-- ✅ NL 图表识别：用户说"以饼图展示"自动切换到饼图（rule_parser:_detect_chart_type_hint → SSE chartTypeHint → 前端自动应用）
-- ✅ 下钻维度点击 → re-query
-- ✅ 日期选择器 → re-query
-- ✅ 数据概览可展开：点击箭头展开所有指标/维度 tag
+| Corrector | 职责 |
+|-----------|------|
+| SchemaCorrector | 字段名校验 + 编辑距离修正 + 表名保护 |
+| GrammarCorrector | 聚合函数 + GROUP BY 一致性 |
+| TimeCorrector | 日期 WHERE 缺失时补充 |
 
 ---
 
-## 附录：环境变量
+## Phase 3：增强
+
+### Knowledge Q&A（记忆层）
+
+文件：`backend/knowledge.py`
+
+- 知识类模式：`是什么`、`怎么算`、`的定义`、`公式`
+- 术语定义直返，不执行 SQL
+- 指标定义含 formula + default_agg
+
+### 多轮对话
+
+文件：`backend/context.py`
+
+- SQLite 持久化 SemanticParseInfo
+- LLM 改写融合历史上下文
+
+### 归因分析
+
+| Processor | 文件 | 职责 |
+|-----------|------|------|
+| DataInterpret | `processors/data_interpret.py` | LLM 流式解读 |
+| MetricRatioCalc | `processors/metric_ratio.py` | 环比/同比 |
+| DimensionRecommend | `processors/dimension_recommend.py` | 下钻推荐 |
+
+---
+
+## Phase 4：React 前端
+
+### 技术栈
+
+Vite 5 + React 18 + TypeScript + Ant Design 5 + ECharts 5 + zustand
+
+### 组件树
+
+```
+<ChatPage>
+  <ChatHeader />                    # 标题
+  <MessageContainer>
+    <UserBubble />                  # 用户消息
+    <ParseTip />                    # 意图解析卡片
+    <ChartPanel>                    # ECharts 5 种图表 + 切换
+    <InsightMarkdown />             # LLM 流式解读
+    <RatioBadges />                 # 环比标签
+    <DrillDownChips />              # 下钻按钮
+  </MessageContainer>
+  <ChatInput />                     # 输入框
+</ChatPage>
+```
+
+### 关键交互
+
+| 交互 | 行为 |
+|------|------|
+| 发送消息 | POST /api/chat/query → SSE 流式渲染 |
+| 图表切换 | 纯前端，柱状/饼图/折线/表格 |
+| 日期修改 | 点击 parse-tip 日期 → DatePicker → 就地更新 |
+| 下钻 | 组装完整 NL → 重新查询 |
+| 新对话 | 生成新 chatId，清空上下文 |
+
+---
+
+## 附录 A：环境变量
 
 ```bash
-# .env（两版本共用）
 DEEPSEEK_API_KEY=sk-your-key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DB_PATH=./data/bilibili_demo.db
 ```
 
-## 附录：端到端验证清单
+## 附录 B：端到端验证
 
-### V0.1 极简版（5条）
-
-1. "最近7天播放量趋势" → 折线图
+1. "最近7天播放量趋势" → 折线图 + 流式解读
 2. "各分区播放量排名" → 柱状图
 3. "点赞最多的5个视频" → 表格
-4. "互动率是多少" → 大数字
-5. "对比知识区和生活区的投币率" → 双柱
-
-### V1.0 升级版（追加5条）
-
-6. "弹幕最多的10个视频" → 表格 + LLM 解读
-7. "最近30天新增粉丝的城市分布" → 饼图
-8. "上周播放量趋势" → "按分区分开" → 多轮改写
-9. 点击下钻维度 → 新查询
-10. ✅ 图表/表格切换 → 视图切换
-11. "各分区播放量以饼图展示" → 自动渲染饼图（NL 图表识别）
+4. "深圳的粉丝有多少" → 大数字
+5. "最近30天新增粉丝的城市分布" → 柱状图
+6. "三连是什么" → Knowledge Q&A 直返定义
+7. "互动率怎么算" → Knowledge Q&A 直返定义
+8. "刘德华的播放量" → 安全拒绝
+9. 点击日期标签 → 修改范围 → 就地更新
+10. 点击下钻维度 → 重新查询

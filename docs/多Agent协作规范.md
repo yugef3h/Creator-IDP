@@ -5,21 +5,10 @@
 **总纲领：控需求 · 定流程 · 验AI · 可并行**
 
 1. **优先使用云端API/成熟第三方库**，不自造轮子
-2. **先跑通主线**，V0.1 极简版（3小时，Streamlit）→ V1.0 升级版（FastAPI + React）
+2. **先跑通主线**，核心链路优先敲定
 3. **前后端可并行**：共享 API 契约先行，后端 curl 验证，前端 mock 数据开发
 4. **Spec文档必须包含**：成功标准、每步验证指标、分步骤实现、并行策略
 5. **AI输出必须审阅**：查阅文档、核验专业名词、校验结果，不盲目信任
-
-**ChatBI 双版本策略：**
-
-```
-V0.1 极简版 (3h)                  V1.0 升级版 (14d)
-  Streamlit 单文件  ──────────→   FastAPI + React
-  仅 Trie 匹配                    + Embedding 双索引
-  prompt 约束替代 Corrector       + Corrector Chain
-  单轮查询                        + 多轮对话 + 归因分析
-  └─ 验证核心链路是否可行 ──────→ └─ 完整产品形态
-```
 
 ---
 
@@ -136,24 +125,7 @@ V0.1 极简版 (3h)                  V1.0 升级版 (14d)
 
 ## 五、主调度执行流程
 
-### 5.1 V0.1 极简版（串行，3小时）✅ 已完成
-
-```
-阶段一：规划 ✅
-阶段二：实现 ✅
-  数据底座（generate_data.py + models.py）✅
-    → 核心模块并行：
-        ├─ trie_index.py + rule_parser.py ✅
-        ├─ llm_parser.py ✅
-        └─ translator.py + executor.py ✅
-    → 集成：app.py（Streamlit）✅
-    → 联调：6/6 演示查询通过 ✅
-
-阶段三：验收 ✅
-  自测：6条正常查询全通，2条幻觉安全拒绝 ✅
-```
-
-### 5.2 V1.0 升级版（前后端并行）✅ 已完成
+### 5.1 执行流程 ✅ 已完成
 
 ```
 阶段一：契约先行 ✅
@@ -256,36 +228,22 @@ V0.1 极简版 (3h)                  V1.0 升级版 (14d)
 | 图表分类逻辑 | chart-utils.ts 依赖的 ColumnInfo.show_type | 确认后端 executor.py 的类型推断与前端一致 |
 | Mock 数据格式 | 前端 mock SSE JSON | 对比真实后端 SSE 输出 |
 
-### 7.3 V0.1 → V1.0 升级校验
+### 7.3 核心模块校验
 
-| 检测点 | V0.1 | V1.0 | 状态 |
-|--------|------|------|------|
-| models.py | 不变 | 不变 | ✅ 直接复用 |
-| trie_index.py | 不变 | 不变 | ✅ 直接复用 |
-| rule_parser.py | 不变 | 不变 | ✅ 直接复用 |
-| llm_parser.py | 单次调用 | 未启用（V1.0禁LLM兜底） | ✅ 不依赖 |
-| translator.py | 简单 JOIN | + 多表 + 日期修正 | ✅ 已验证 |
-| executor.py | sqlite3 | sqlite3 | ✅ 直接复用 |
+| 模块 | 状态 |
+|------|------|
+| models.py | ✅ |
+| trie_index.py | ✅ |
+| rule_parser.py | ✅ |
+| llm_parser.py | ✅ 不启用（禁 LLM 兜底） |
+| translator.py | ✅ |
+| executor.py | ✅ |
 
 ---
 
 ## 八、调用方式
 
-### 8.1 V0.1 极简版（串行）
-
-```
-// 阶段一：规划（已完成，参考 docs/spec.md）
-// 阶段二：实现（按依赖顺序）
-Agent({ prompt: 数据组_PROMPT + "generate_data.py + models.py" })
-Agent({ prompt: 并行组_PROMPT + "trie_index / rule_parser / translator / executor" })
-Agent({ prompt: LLM组_PROMPT + "llm_parser.py" })
-Agent({ prompt: 集成组_PROMPT + "app.py Streamlit" })
-// 阶段三：验收
-Agent({ prompt: 校验师_PROMPT, mode: 'C' })
-Agent({ prompt: PM_PROMPT, mode: 'B' })
-```
-
-### 8.2 V1.0 升级版（前后端并行）
+### 8.2 前后端并行
 
 ```
 // 阶段零：契约（前后端共享依赖）
