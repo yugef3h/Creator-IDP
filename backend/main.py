@@ -177,6 +177,13 @@ async def chat_query(request: Request):
             preset_date = {"start": date_range["start"], "end": date_range["end"]}
         parse_info = rule_parse(current_query, matched, TRIE_KEYS, preset_date_info=preset_date)
         if parse_info is None or not parse_info.s2sql:
+            # 跨表检测：两个指标来自不同表
+            metric_tables = {m.table or "video_stats" for m in matched if m.element_type == "METRIC"}
+            if len(metric_tables) > 1:
+                yield sse_event("error", data={
+                    "message": "抱歉，暂不支持跨表联合查询。请分开提问，如：各城市粉丝占比、各分区播放量",
+                })
+                return
             yield sse_event("error", data={
                 "message": "抱歉，我无法理解这个问题。",
                 "suggestion": "试试：最近7天播放量趋势、各分区播放量排名",

@@ -1,7 +1,4 @@
-"""多轮对话：上下文持久化 + LLM 改写。
-
-V1.0 新增模块。
-"""
+"""多轮对话：上下文持久化 + LLM 改写。"""
 
 from __future__ import annotations
 
@@ -14,7 +11,6 @@ from models import SemanticParseInfo
 
 
 def _ensure_table():
-    """确保 chat_context 表存在。"""
     conn = sqlite3.connect("bilibili_demo.db")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS chat_context (
@@ -29,12 +25,11 @@ def _ensure_table():
 
 
 def save_context(chat_id: str, query_text: str, parse_info: SemanticParseInfo):
-    """保存本轮查询的完整上下文。"""
     _ensure_table()
     conn = sqlite3.connect("bilibili_demo.db")
     conn.execute(
         "INSERT OR REPLACE INTO chat_context (chat_id, query_text, parse_info, updated_at) VALUES (?, ?, ?, ?)",
-        (chat_id, query_text, json.dumps(_serialize_parse_info(parse_info), ensure_ascii=False),
+        (chat_id, query_text, json.dumps(_serialize(parse_info), ensure_ascii=False),
          datetime.now().isoformat())
     )
     conn.commit()
@@ -42,7 +37,6 @@ def save_context(chat_id: str, query_text: str, parse_info: SemanticParseInfo):
 
 
 def load_context(chat_id: str) -> dict | None:
-    """加载历史上下文。"""
     _ensure_table()
     conn = sqlite3.connect("bilibili_demo.db")
     row = conn.execute(
@@ -56,20 +50,61 @@ def load_context(chat_id: str) -> dict | None:
 
 
 def rewrite_multi_turn(current_query: str, history: dict) -> str:
-    """用 LLM 改写多轮问题，融合历史上下文。"""
-    # 简单策略：如果历史存在，直接把历史和当前问题拼接
-    # 更高级的做法是用 LLM 改写，但保持 V1.0 简洁
-    hist_sql = history.get("parse_info", {}).get("query_sql", "")
-    hist_metrics = history.get("parse_info", {}).get("metrics", [])
-    hist_dims = history.get("parse_info", {}).get("dimensions", [])
+    """用 LLM 融合历史上下文和当前追问，输出独立完整的问题。"""
+    hist_query = history.get("query_text", "")
+    hist_parse = history.get("parse_info", {})
 
-    # 简单融合：把历史的关键词附加上
-    if hist_metrics and hist_dims:
+    # 如果历史没有实质内容，直接返回
+    if not hist_query or not hist_parse.get("metrics"):
         return current_query
-    return current_query
+
+    # 当前查询已经完整（含指标关键词），不需要改写
+    hist_metrics = [m for m in hist_parse.get("metrics", [])]
+    if any(m in current_query for m in hist_metrics):
+        return current_query
+
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        # 无 LLM 时做简单拼接
+        return f"{hist_query} {current_query}"
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(
+            api_key=api_key,
+            base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+        )
+
+        prompt = f"""#Role: 数据分析需求分析师
+#Task: 将用户的追问融合历史上下文，改写为独立完整的数据查询问题。
+
+#Rules:
+1. 保留历史中的指标、维度、日期范围
+2. 融入当前追问中的新约束（新维度、过滤条件等）
+3. 只输出改写后的问题，不要解释
+
+#History: {hist_query}
+#History SQL: {hist_parse.get('query_sql', '')}
+
+#Current: {current_query}
+
+#Rewritten:"""
+
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=100,
+        )
+        rewritten = response.choices[0].message.content.strip()
+        print(f"  [MultiTurn] '{current_query}' → '{rewritten}'")
+        return rewritten
+    except Exception as e:
+        print(f"  [MultiTurn] LLM rewrite failed: {e}")
+        return f"{hist_query} {current_query}"
 
 
-def _serialize_parse_info(p: SemanticParseInfo) -> dict:
+def _serialize(p: SemanticParseInfo) -> dict:
     return {
         "metrics": [m.biz_name for m in p.metrics],
         "dimensions": [d.biz_name for d in p.dimensions],

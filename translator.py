@@ -59,14 +59,13 @@ def translate(s2sql: str) -> str:
             continue
 
         if el.get("expression"):
-            # 派生指标: AGG(bizName) → AGG(expression)
             expr = el["expression"]
             for func in agg_funcs:
                 pattern = f"{func}({biz_name})"
                 if pattern in sql:
+                    # 替换整个 AGG(bizName)，保留 AGG(expr)
                     sql = sql.replace(pattern, f"{func}({expr})")
         else:
-            # 普通指标: AGG(bizName) → AGG(physical_name)
             phys = el["name"]
             for func in agg_funcs:
                 pattern = f"{func}({biz_name})"
@@ -95,7 +94,8 @@ def translate(s2sql: str) -> str:
     for biz_name in sorted_names:
         el = lookup[biz_name]
         if el["type"] == "dimension":
-            sql = sql.replace(biz_name, el["name"])
+            # 用 word boundary 替换，避免替换已含表前缀的引用
+            sql = re.sub(rf'\b{re.escape(biz_name)}\b', el["name"], sql)
 
     # ---------- Step 4: 修复 fans 表的日期字段 ----------
     # 如果 FROM 是 fans 表，把 stat_date 替换为 follow_time

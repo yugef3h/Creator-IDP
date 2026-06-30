@@ -267,6 +267,12 @@ def parse(
     if not metrics:
         return None
 
+    # ---------- 跨表检测 ----------
+    metric_tables = {m.table or "video_stats" for m in metrics}
+    dim_tables = {d.table or "video_stats" if not d.join_table else "video_stats" for d in dimensions}
+    if len(metric_tables | dim_tables) > 1:
+        return None  # 跨表暂不支持，返回 None 让上层提示
+
     # ---------- 意图分类 ----------
     intent = classify_intent(query)
 
@@ -334,16 +340,8 @@ def parse(
                 break
 
     for dim in dimensions:
-        for alias in dim.alias.split(","):
-            alias = alias.strip()
-            if alias in query and len(alias) >= 2:
-                # 分区过滤
-                cat_match = re.search(rf"([一-鿿]{{2,4}})(?:的{alias}|{alias})", query)
-                if cat_match and dim.biz_name in ("category", "video_title"):
-                    val = cat_match.group(1)
-                    if val not in ("城市", "地区", "地域", "性别", "年龄", "分区", "类别"):
-                        filters.append({"biz_name": dim.biz_name, "operator": "=", "value": val})
-                        break
+        # 维度值过滤：仅城市名（明确关键词），分区/视频名太容易误匹配，暂不自动提取
+        pass
         # 城市过滤：仅明确城市名
         if dim.biz_name == "city":
             cities = ["北京", "上海", "广州", "深圳", "杭州", "成都", "武汉", "南京", "重庆", "西安"]
@@ -396,7 +394,7 @@ def parse(
             where_clauses = [f"{date_col} BETWEEN {_esc(date_info['start'])} AND {_esc(date_info['end'])}"]
             for f in filters:
                 dim_el = next((d for d in dimensions if d.biz_name == f["biz_name"]), None)
-                col = dim_el.name if dim_el else f["biz_name"]
+                col = f["biz_name"]  # S2SQL 用 biz_name，translator 负责转物理名
                 where_clauses.append(f"{col} = {_esc(f['value'])}")
             s2sql_parts.append("WHERE " + " AND ".join(where_clauses))
             group_cols = [d.biz_name for d in dimensions]
@@ -418,7 +416,7 @@ def parse(
             where_clauses = [f"{date_col} BETWEEN {_esc(date_info['start'])} AND {_esc(date_info['end'])}"]
             for f in filters:
                 dim_el = next((d for d in dimensions if d.biz_name == f["biz_name"]), None)
-                col = dim_el.name if dim_el else f["biz_name"]
+                col = f["biz_name"]  # S2SQL 用 biz_name，translator 负责转物理名
                 where_clauses.append(f"{col} = {_esc(f['value'])}")
             if where_clauses:
                 s2sql_parts.append("WHERE " + " AND ".join(where_clauses))
@@ -447,7 +445,7 @@ def parse(
             where_clauses.append(f"{date_col} BETWEEN {_esc(date_info['start'])} AND {_esc(date_info['end'])}")
         for f in filters:
             dim_el = next((d for d in dimensions if d.biz_name == f["biz_name"]), None)
-            col = dim_el.name if dim_el else f["biz_name"]
+            col = f["biz_name"]  # S2SQL 用 biz_name，translator 负责转物理名
             where_clauses.append(f"{col} = {_esc(f['value'])}")
         if where_clauses:
             s2sql_parts.append("WHERE " + " AND ".join(where_clauses))

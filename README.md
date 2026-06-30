@@ -153,3 +153,8 @@ SSE 事件流：`knowledge?` → `parse_info` → `query_result` → `summary_ch
 - [UI 设计规范](docs/ui-design-system.md) — CSS 变量、组件配方、ECharts 主题
 - [Bug 修复记录](docs/bugfixed.md) — 12 个 bug 的根因与修复
 - [多Agent协作规范](docs/多Agent协作规范.md) — PM + 技术校验师流程
+
+
+## TODO
+
+- 多租户隔离
