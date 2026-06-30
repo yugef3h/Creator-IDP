@@ -269,17 +269,52 @@ V0.1 极简版 (3h)                  V1.0 升级版 (14d)
 
 ## 八、调用方式
 
-本项目使用 `Agent` 工具顺序调用子Agent，不使用 `Workflow` 工具（开发流程严格串行：方案→代码→验收，无并行分支）。
+### 8.1 V0.1 极简版（串行）
 
 ```
-// 阶段一：PM规划
-Agent({ prompt: PM_PROMPT + 规划上下文 })
-
-// 阶段二循环：
-Agent({ prompt: 校验师_PROMPT + 方案校验上下文, mode: 'A' })
-Agent({ prompt: 校验师_PROMPT + 代码校验上下文, mode: 'B' })
-
-// 阶段三：
-Agent({ prompt: 校验师_PROMPT + 交付校验上下文, mode: 'C' })
-Agent({ prompt: PM_PROMPT + 验收上下文 })
+// 阶段一：规划（已完成，参考 docs/spec.md）
+// 阶段二：实现（按依赖顺序）
+Agent({ prompt: 数据组_PROMPT + "generate_data.py + models.py" })
+Agent({ prompt: 并行组_PROMPT + "trie_index / rule_parser / translator / executor" })
+Agent({ prompt: LLM组_PROMPT + "llm_parser.py" })
+Agent({ prompt: 集成组_PROMPT + "app.py Streamlit" })
+// 阶段三：验收
+Agent({ prompt: 校验师_PROMPT, mode: 'C' })
+Agent({ prompt: PM_PROMPT, mode: 'B' })
 ```
+
+### 8.2 V1.0 升级版（前后端并行）
+
+```
+// 阶段零：契约（前后端共享依赖）
+Agent({ prompt: "产出 models.py + API SSE 事件格式契约" })
+Agent({ prompt: 校验师_PROMPT + "接口契约校验", mode: 'A' })
+
+// 阶段一A：后端（Track A）          // 阶段一B：前端（Track B）
+Agent({                               Agent({
+  prompt: 后端_PROMPT +                 prompt: 前端_PROMPT +
+    "Phase 2: FastAPI + SSE +            "Phase 4: Vite + React +
+     pipeline + embedding"               AntD + ECharts + zustand"
+})                                    })
+Agent({                               Agent({
+  prompt: 校验师_PROMPT +               prompt: 校验师_PROMPT +
+    "后端代码校验", mode: 'B'             "前端代码校验", mode: 'B'
+})                                    })
+
+// 阶段二：增强 + 联调
+Agent({ prompt: 后端_PROMPT + "Phase 3: context + processors" })
+Agent({ prompt: 联调_PROMPT + "前后端 SSE 对接" })
+Agent({ prompt: 校验师_PROMPT, mode: 'C' })
+
+// 阶段三：验收
+Agent({ prompt: PM_PROMPT + "最终验收", mode: 'B' })
+```
+
+### 8.3 前后端并行前提条件
+
+前端和后端可同时启动的条件：
+1. ✅ **API 契约已锁定**：models.py 中的 QueryResult / SemanticParseInfo 字段确定
+2. ✅ **SSE 事件格式确定**：`parse_info` → `query_result` → `summary_chunk` → `done`
+3. ✅ **前端 mock 数据就绪**：一份 JSON 文件模拟完整 SSE 流程
+
+三大条件满足后，后端用 curl 自测，前端用 mock 开发，互不阻塞。
