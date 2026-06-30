@@ -2,7 +2,7 @@
 
 > 自然语言问数据 → SQL → 图表 + AI 解读。语义层防幻觉。
 
-两个版本：**V0.1 极简版**（3小时，Streamlit 一把梭）和 **V1.0 升级版**（React + FastAPI 完整产品）。
+两个版本：**V0.1 极简版**（3小时）和 **V1.0 升级版**（React + FastAPI 完整产品）。
 
 ---
 
@@ -11,7 +11,7 @@
 ### 前置
 
 - Python 3.10+
-- DeepSeek API Key（[注册](https://platform.deepseek.com)，¥1/百万 token）
+- DeepSeek API Key
 
 ### 启动
 
@@ -146,7 +146,7 @@ chatbi-demo/
 
 | 版本 | 内容 | 基础 |
 |------|------|------|
-| **V0.1** | 单轮 NL2SQL + 图表，Streamlit 一把梭 | 从零 |
+| **V0.1** | 单轮 NL2SQL + 图表 | 从零 |
 | **V1.0** | FastAPI + React 完整产品 | V0.1 核心模块复用 |
 | V1.1 | 多轮对话 | V1.0 |
 | V1.2 | 归因分析（解读/环比/下钻） | V1.0 |
