@@ -154,6 +154,11 @@ SSE 事件流：`knowledge?` → `parse_info` → `query_result` → `summary_ch
 - [Bug 修复记录](docs/bugfixed.md) — 12 个 bug 的根因与修复
 - [多Agent协作规范](docs/多Agent协作规范.md) — PM + 技术校验师流程
 
+## 重点文档
+- [mvp缺漏](docs/mvp-missing-auth-retro.md)
+- [mvp通用解决方案](docs/mvp-design-framework.md)
+
+
 
 ## TODO
 
